@@ -234,6 +234,8 @@ def advTrain(logname, net, train_loader, val_loader, beta, cutmix_prob,
             '''
             CUT-MIX
             '''
+            # Apply CutMix with beta=1.0 for first 100 epochs, then decrease beta linearly to 0 for remaining epochs
+            #beta = 1.0 if _epoch <= 100 else 1.0 - (_epoch-100)/100
             r = np.random.rand(1)
             if beta > 0 and r < cutmix_prob:
                 #print('=> cutmix')
@@ -390,7 +392,7 @@ def advALPTrain(logname, net, device, train_loader, val_loader, beta, cutmix_pro
                 preds_b =  net(adv_b) 
                 #printLogits(outputs= preds_a, teacher=preds_t, targets= target_a, index=3, message= 'preds_a', escape=False)
                 #printLogits(outputs= preds_b, teacher=preds_t, targets= target_b, index=3, message= 'preds_b', escape=True)
-                loss = lossCalculator(benign=preds_a, targets=target_a, adversarial=preds_t) * lam + lossCalculator(benign=preds_b, targets=target_b, adversarial=preds_t) * (1. - lam)
+                loss = lossCalculator(benign=preds_t, targets=target_a, adversarial=preds_a) * lam + lossCalculator(benign=preds_t, targets=target_b, adversarial=preds_b) * (1. - lam)
                 preds_np_a = preds_a.cpu().detach().numpy()
                 preds_np_b = preds_b.cpu().detach().numpy()
                 correct += (np.argmax(preds_np_a, axis=1) ==
@@ -400,8 +402,8 @@ def advALPTrain(logname, net, device, train_loader, val_loader, beta, cutmix_pro
             else:
                 # compute output
                 adv = attack(xs, ys)
-                preds_t = net(adv)
-                preds =  net(xs)
+                preds_t = net(xs)
+                preds =  net(adv)
                 loss = lossCalculator(benign=preds, targets=ys, adversarial=preds_t)
                 preds_np = preds.cpu().detach().numpy()
                 correct += (np.argmax(preds_np, axis=1) ==
@@ -535,7 +537,7 @@ def advKDTrain(logname, net, net_t, device, train_loader, val_loader, beta, cutm
                 preds_t = net_t(xs)
                 preds_a =  net(adv_a)
                 preds_b =  net(adv_b) 
-                loss = lossCalculator(benign=preds_a, targets=target_a, adversarial=preds_t) * lam + lossCalculator(benign=preds_b, targets=target_b, adversarial=preds_t) * (1. - lam)
+                loss = lossCalculator(benign=preds_t, targets=target_a, adversarial=preds_a) * lam + lossCalculator(benign=preds_t, targets=target_b, adversarial=preds_b) * (1. - lam)
                 preds_np_a = preds_a.cpu().detach().numpy()
                 preds_np_b = preds_b.cpu().detach().numpy()
                 correct += (np.argmax(preds_np_a, axis=1) ==
@@ -548,7 +550,7 @@ def advKDTrain(logname, net, net_t, device, train_loader, val_loader, beta, cutm
                 preds_t = net_t(xs)
                 preds =  net(adv)
                 #loss = CELoss(xs, ys)
-                loss = lossCalculator(benign=preds, targets=ys, adversarial=preds_t)
+                loss = lossCalculator(benign=preds_t, targets=ys, adversarial=preds)
                 preds_np = preds.cpu().detach().numpy()
                 correct += (np.argmax(preds_np, axis=1) ==
                             ys.cpu().detach().numpy()).sum()

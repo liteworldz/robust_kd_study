@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
+from tqdm import tqdm
 
 #from tvision import models
 
@@ -32,7 +33,7 @@ def evalClean(net=None, data_loader=None):
     # to track the validation loss as the model trains
     valid_losses = []
     with torch.no_grad():
-        for xs, ys in data_loader:
+        for xs, ys in tqdm(data_loader):
             xs, ys = Variable(xs), Variable(ys)
             if torch.cuda.is_available():
                 xs, ys = xs.cuda(), ys.cuda()
@@ -56,7 +57,7 @@ def evalAdvAttack(net=None, data_loader=None, attack=None):
     # to track the validation loss as the model trains
     valid_losses = []
     net.eval()
-    for xs, ys in data_loader:
+    for xs, ys in tqdm(data_loader):
         if torch.cuda.is_available():
             xs, ys = xs.cuda(), ys.cuda()
         # pytorch PGD
