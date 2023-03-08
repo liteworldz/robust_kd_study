@@ -36,17 +36,17 @@ class LossCalulcator(nn.Module):
         sys.exit()
         '''
         if self.training_loss == 'alp':
-            soft_target_loss = self.MSELoss(benign,  adversarial)
+            soft_target_loss = self.MSELoss(adversarial,  benign)
             hard_target_loss = .5 * (F.cross_entropy(benign, targets, reduction='mean') + F.cross_entropy(adversarial, targets, reduction='mean'))
             total_loss =  hard_target_loss  + (soft_target_loss  * self.distillation_weight)
         elif self.training_loss == 'alpkdce1':
-            soft_target_loss = self.kldiv(F.log_softmax(benign/self.temperature, dim=1), 
-                                        F.softmax(adversarial/self.temperature, dim=1)) * (self.temperature ** 2)
+            soft_target_loss = self.kldiv(F.log_softmax(adversarial/self.temperature, dim=1), 
+                                        F.softmax(benign/self.temperature, dim=1)) * (self.temperature ** 2)
             hard_target_loss = .5 * (F.cross_entropy(benign, targets, reduction='mean') + F.cross_entropy(adversarial, targets, reduction='mean'))
             total_loss = ( hard_target_loss *  (1 -  self.distillation_weight)) + (soft_target_loss  * self.distillation_weight)
         elif self.training_loss == 'alpkdce2':
-            soft_target_loss = self.kldiv(F.log_softmax(benign/self.temperature, dim=1), 
-                                        F.softmax(adversarial/self.temperature, dim=1)) * (self.temperature ** 2)
+            soft_target_loss = self.kldiv(F.log_softmax(adversarial/self.temperature, dim=1), 
+                                        F.softmax(benign/self.temperature, dim=1)) * (self.temperature ** 2)
             hard_target_loss = F.cross_entropy(adversarial, targets, reduction='mean')
             total_loss = ( hard_target_loss *  (1 -  self.distillation_weight)) + (soft_target_loss  * self.distillation_weight)
         # Logging
