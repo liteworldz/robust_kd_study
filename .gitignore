@@ -12,6 +12,7 @@ checkpoint/
 checkpoint/**/*.pth
 *.npy
 *.h5
+*.npz
 
 # Distribution / packaging
 .Python
