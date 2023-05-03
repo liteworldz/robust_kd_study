@@ -797,7 +797,7 @@ if __name__ == '__main__':
     parser.add_argument('--cutmix_prob', default=0.5, type=float,
                     help='cutmix probability')
     parser.add_argument('--val_size', type=int, default=6000)
-    parser.add_argument('--batch_size', type=int, default=200)
+    parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--epochs', type=int, default=200)
     parser.add_argument('--patience', type=int, default=200)
     parser.add_argument('--netname', type=str, default="resnet18")

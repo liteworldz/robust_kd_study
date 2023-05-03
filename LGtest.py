@@ -168,7 +168,7 @@ def main():
     parser.add_argument("--gpu", type=str, default="0")
     parser.add_argument('--dataset', type=str, default="cifar10")
     parser.add_argument('--val_size', type=int, default=6000)
-    parser.add_argument('--batch_size', type=int, default=200)
+    parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument(
         '--filename',
         default='teacher.pth',

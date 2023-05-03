@@ -11,6 +11,7 @@ import warnings
 import torchattacks
 #from torchvision import models
 from resnet import *
+from wideresnet import WideResNet
 #from preact_resnet import *
 #from models import *
 from utils import progress_bar
@@ -18,6 +19,7 @@ import argparse
 import torch.backends.cudnn as cudnn
 
 import dataset
+import dataset_cifar100
 
 from loss import LossCalulcator
 
@@ -51,17 +53,17 @@ ALP = 'ALP'
 DECAY = 2e-4
 MOMENTUM = 0.9
 
-def get_model_by_name(name):
-    if name == "resnet34":
-        model = ResNet18() #models.resnet18() #
+def get_model_by_name(name, num_classes):
+    if name == "wideresnet":
+        model = WideResNet(34, num_classes, widen_factor=10, dropRate=0.0)
     elif name == "resnet18":
-        model = ResNet18() #models.resnet18() # 
+        model = ResNet18(num_classes=num_classes) #models.resnet18() # 
     else:
         raise Exception('Unknown network name: {0}'.format(name))
     return model
 
              
-def Train(logname, net, train_loader, val_loader, beta, cutmix_prob,
+def Train(logname, net, train_loader, val_loader, network, classes, beta, cutmix_prob,
              nb_epochs=10, learning_rate=0.1, patience=200, VERSION='_v1'):
     net.train()
     start = time.time()
@@ -172,6 +174,8 @@ def Train(logname, net, train_loader, val_loader, beta, cutmix_prob,
         state = {
             'net': net.state_dict(),
             'acc': acc,
+            'network':network,
+            'classes':classes,
             'val_acc': val_acc,
             'epoch': _epoch + 1
                     }
@@ -187,7 +191,7 @@ def Train(logname, net, train_loader, val_loader, beta, cutmix_prob,
             break
         
         
-def advTrain(logname, net, train_loader, val_loader, beta, cutmix_prob,
+def advTrain(logname, net, train_loader, val_loader, network, classes, beta, cutmix_prob,
              nb_epochs=10, learning_rate=0.1, patience=200, VERSION='_v1'):
     net.train()
     start = time.time()
@@ -308,6 +312,8 @@ def advTrain(logname, net, train_loader, val_loader, beta, cutmix_prob,
         state = {
             'net': net.state_dict(),
             'acc': acc,
+            'network':network,
+            'classes':classes,
             'val_acc': val_acc,
             'epoch': _epoch + 1
                     }
@@ -323,7 +329,7 @@ def advTrain(logname, net, train_loader, val_loader, beta, cutmix_prob,
             break
 
 
-def advALPTrain(logname, net, device, train_loader, val_loader, beta, cutmix_prob,
+def advALPTrain(logname, net, device, train_loader, val_loader, network, classes, beta, cutmix_prob,
                nb_epochs=10, distillation_weight=0.5, temperature=1, training_loss='alp', learning_rate=0.1, patience=200, VERSION='v1'):
     net.train()
     start = time.time()
@@ -450,6 +456,8 @@ def advALPTrain(logname, net, device, train_loader, val_loader, beta, cutmix_pro
         state = {
             'net': net.state_dict(),
             'acc': acc,
+            'network':network,
+            'classes':classes,
             'val_acc': val_acc,
             'epoch': _epoch + 1
                     }
@@ -465,7 +473,7 @@ def advALPTrain(logname, net, device, train_loader, val_loader, beta, cutmix_pro
             break
    
 
-def advKDTrain(logname, net, net_t, device, train_loader, val_loader, beta, cutmix_prob,
+def advKDTrain(logname, net, net_t, device, train_loader, val_loader, network, classes, beta, cutmix_prob,
                nb_epochs=10, distillation_weight=0.5, temperature=1, training_loss='nt', learning_rate=0.1, patience=200, VERSION='v1'):
     net.train()
     net_t.eval()
@@ -597,6 +605,8 @@ def advKDTrain(logname, net, net_t, device, train_loader, val_loader, beta, cutm
         state = {
             'net': net.state_dict(),
             'acc': acc,
+            'network':network,
+            'classes':classes,
             'val_acc': val_acc,
             'epoch': _epoch + 1
                     }
@@ -680,22 +690,25 @@ def evalAdvAttack(net=None, val_loader=None):
         correct += (finalPred == ys.cpu().detach().numpy()).sum()
         total += val_loader.batch_size
     acc = float(correct) / total
-    #print('Adv accuracy: {:.3f}ï¼…'.format(acc * 100))
+    #print('Adv accuracy: {:.3f}％'.format(acc * 100))
     return valid_losses, acc
 
 def main(args):
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     start_epoch = 0  # start from epoch 0 or last checkpoint epoch
-
-    trainloader, valloader, testloader = dataset.get_loader(
-        args.val_size, args.batch_size)
+    if args.classes == 100:
+        trainloader, valloader, testloader = dataset_cifar100.get_loader(
+            args.val_size, args.batch_size)
+    else:
+        trainloader, valloader, testloader = dataset.get_loader(
+            args.val_size, args.batch_size)
 
     
     print('==> Preparing Log-File')
     if not os.path.isdir('results'):
         os.mkdir('results')
-    logname = ('./results/log_' + args.method + '_' + args.version  + '.csv')
+    logname = ('./results/log_' + args.network + f'_C_{args.classes}_' + args.method + '_' + args.version  + '.csv')
     if not os.path.exists(logname):
         with open(logname, 'a', newline='') as logfile:
             logwriter = csv.writer(logfile, delimiter=',')
@@ -706,22 +719,22 @@ def main(args):
    
     # Model
     print('==> Building model..')
-    print('==> network:', args.netname)
-    net = get_model_by_name(args.netname)
+    print('==> network:', args.network)
+    net = get_model_by_name(args.network, num_classes= args.classes)
     net = net.to(device)
     if device == 'cuda':
         net = torch.nn.DataParallel(net, device_ids=DEVICES_IDS)
         cudnn.benchmark = True
         
     if args.method == STANDARD:
-        Train(logname, net, trainloader, valloader, args.beta, args.cutmix_prob, args.epochs, args.lr, args.patience, args.version)
+        Train(logname, net, trainloader, valloader, args.network, args.classes, args.beta, args.cutmix_prob, args.epochs, args.lr, args.patience, args.version)
     elif args.method == ADVERSARIAL:
-        advTrain(logname, net, trainloader, valloader, args.beta, args.cutmix_prob, args.epochs, args.lr, args.patience, args.version)
+        advTrain(logname, net, trainloader, valloader,args.network, args.classes, args.beta, args.cutmix_prob, args.epochs, args.lr, args.patience, args.version)
     elif args.method == ALPISTILLATION:
-        advALPTrain(logname, net, device, trainloader, valloader, args.beta, args.cutmix_prob, args.epochs,args.distillation_weight, args.temperature,
+        advALPTrain(logname, net, device, trainloader, valloader,args.network, args.classes, args.beta, args.cutmix_prob, args.epochs,args.distillation_weight, args.temperature,
                   args.loss, args.lr, args.patience, args.version)
     elif args.method == KDISTILLATION:
-        net_t = get_model_by_name(args.netname)
+        net_t = get_model_by_name(args.network, num_classes= args.classes)
         net_t = net_t.to(device)
         if device == 'cuda':
             net_t = torch.nn.DataParallel(net_t, device_ids=DEVICES_IDS)
@@ -735,7 +748,7 @@ def main(args):
         net_t.eval() # auto ignore dropout layer
         #print(net_t)
         print('==> loaded Teacher')
-        advKDTrain(logname, net, net_t, device, trainloader, valloader, args.beta, args.cutmix_prob, args.epochs,args.distillation_weight, args.temperature,
+        advKDTrain(logname, net, net_t, device, trainloader, valloader, args.network, args.classes, args.beta, args.cutmix_prob, args.epochs,args.distillation_weight, args.temperature,
                   args.loss, args.lr, args.patience, args.version)
     else:
         raise AssertionError(
@@ -757,7 +770,8 @@ def adjust_learning_rate(learning_rate,optimizer, epoch):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
     parser.add_argument("--gpu", type=str, default="0")
-    parser.add_argument('--dataset', type=str, default="cifar10")
+    parser.add_argument('--network', type=str, default="resnet18")
+    parser.add_argument('--classes', type=int, default=10)
     parser.add_argument('--method', type=str, default="nt", help='method used (nt:Standard, at:adversarial, alp:logit pairing, kd:knowledge distillation)')
     parser.add_argument('--loss', type=str, default="kd")
     parser.add_argument('--beta', default=0.0, type=float,
@@ -765,10 +779,9 @@ if __name__ == '__main__':
     parser.add_argument('--cutmix_prob', default=0.5, type=float,
                     help='cutmix probability')
     parser.add_argument('--val_size', type=int, default=6000)
-    parser.add_argument('--batch_size', type=int, default=200)
+    parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--epochs', type=int, default=200)
     parser.add_argument('--patience', type=int, default=200)
-    parser.add_argument('--netname', type=str, default="resnet18")
     parser.add_argument('--teacher', type=str, default="NT")
     parser.add_argument('--version', type=str, default="v1")
     parser.add_argument('--temperature', default=1.0,

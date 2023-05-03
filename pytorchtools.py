@@ -53,7 +53,7 @@ class EarlyStopping:
         '''Saves model when validation acc increased.'''
         if self.verbose:
             self.trace_func(f'Validation acc increased ({self.val_acc_min:.6f} --> {val_acc:.6f}).  Saving model ...')
-        if not os.path.isdir(self.path + type):
-            os.mkdir(self.path + type)
-        torch.save(state, self.path + type + '/' + f'_{state["epoch"] }_' + type  + '_.pth')
+        if not os.path.isdir(self.path + type +  f'_Net_{state["network"] }_' +  f'_C_{state["classes"] }_'):
+            os.mkdir(self.path + type +  f'_Net_{state["network"] }_' +  f'_C_{state["classes"] }_')
+        torch.save(state, self.path + type +  f'_Net_{state["network"] }_' +  f'_C_{state["classes"] }_' + '/' +  f'_Net_{state["network"] }_' +  f'_C_{state["classes"] }_' + f'_{state["epoch"] }_' + type  + '_.pth')
         self.val_acc_min = val_acc

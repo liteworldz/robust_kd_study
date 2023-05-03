@@ -73,7 +73,7 @@ def evalAdvAttack(net=None, data_loader=None, attack=None):
         correct += (finalPred == ys.cpu().detach().numpy()).sum()
         total += data_loader.batch_size
     acc = float(correct) / total
-    #print('Adv accuracy: {:.3f}ï¼…'.format(acc * 100))
+    #print('Adv accuracy: {:.3f}％'.format(acc * 100))
     return valid_losses, acc
 
 def test(net, adversary, steps, filename, val_size, batch_size, data_type):
@@ -159,7 +159,7 @@ def main():
     parser.add_argument("--gpu", type=str, default="0")
     parser.add_argument('--dataset', type=str, default="cifar10")
     parser.add_argument('--val_size', type=int, default=6000)
-    parser.add_argument('--batch_size', type=int, default=200)
+    parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument(
         '--filename',
         default='teacher.pth',
