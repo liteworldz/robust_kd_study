@@ -6,9 +6,11 @@ from tqdm import tqdm
 #from tvision import models
 
 from resnet import *
+from wideresnet import WideResNet
 #import preactresnet
 #from models import *
 import dataset
+import dataset_cifar100
 
 import torchattacks
 import argparse
@@ -76,7 +78,7 @@ def evalAdvAttack(net=None, data_loader=None, attack=None):
     #print('Adv accuracy: {:.3f}％'.format(acc * 100))
     return valid_losses, acc
 
-def test(net, adversary, steps, filename, val_size, batch_size, data_type):
+def test(net, classes, adversary, steps, filename, val_size, batch_size, data_type):
     
     load_path = "./checkpoint/"
     checkpoint = torch.load(load_path + filename,
@@ -90,8 +92,10 @@ def test(net, adversary, steps, filename, val_size, batch_size, data_type):
 
     net.load_state_dict(checkpoint)
 
-
-    trainloader, valloader, testloader = dataset.get_loader(val_size, batch_size)
+    if classes == 100:
+        trainloader, valloader, testloader = dataset_cifar100.get_loader(val_size, batch_size)
+    else:
+        trainloader, valloader, testloader = dataset.get_loader(val_size, batch_size)
 
     if data_type=='test':
         data_loader = testloader
@@ -116,7 +120,7 @@ def test(net, adversary, steps, filename, val_size, batch_size, data_type):
     total = 0
 
     AUTOadversary = torchattacks.AutoAttack(
-        net, norm='Linf', eps=EPS, version='standard', n_classes=10, seed=None, verbose=False)
+        net, norm='Linf', eps=EPS, version='standard', n_classes=classes, seed=None, verbose=False)
     PGDadversary = torchattacks.PGD(net, eps=EPS, alpha=ALPHA, steps=steps)
     
     net.eval()
@@ -138,7 +142,11 @@ def test(net, adversary, steps, filename, val_size, batch_size, data_type):
 def init_test(args):
     
     filename = args.filename
-    net = ResNet18() #preactresnet.PreActResNet18() #models.resnet18() #
+    if args.network== 'wideresnet':
+        net = WideResNet(34, args.classes, widen_factor=10, dropRate=0.0)
+    else:
+        net = ResNet18(num_classes=args.classes)
+        
     net = net.to(device)
     net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
@@ -157,7 +165,8 @@ def init_test(args):
 def main():
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
     parser.add_argument("--gpu", type=str, default="0")
-    parser.add_argument('--dataset', type=str, default="cifar10")
+    parser.add_argument('--network', type=str, default="resnet18")
+    parser.add_argument('--classes', type=int, default=10)
     parser.add_argument('--val_size', type=int, default=6000)
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument(
