@@ -6,9 +6,13 @@ from tqdm import tqdm
 #from tvision import models
 
 from resnet import *
+from wideresnet import WideResNet
+
 #import preactresnet
 #from models import *
 import dataset_npz
+import dataset_npz_100
+
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
 
 import torchattacks
@@ -17,8 +21,10 @@ import numpy as np
 from utils import progress_bar
 import time
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+import csv
+
+#os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+#device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 EPS= 8/255
 ALPHA= 2/255
@@ -77,7 +83,7 @@ def evalAdvAttack(net=None, data_loader=None, attack=None):
     #print('Adv accuracy: {:.3f}ï¼…'.format(acc * 100))
     return valid_losses, acc
 
-def test(net, adversary, steps, filename, val_size, batch_size, data_type):
+def test(net, classes, adversary, steps, filename, val_size, batch_size, data_type):
     
     load_path = "./checkpoint/"
     checkpoint = torch.load(load_path + filename,
@@ -91,8 +97,13 @@ def test(net, adversary, steps, filename, val_size, batch_size, data_type):
 
     net.load_state_dict(checkpoint)
 
-
-    train_dataset, val_dataset, test_dataset, train_size = dataset_npz.get_loader(val_size, batch_size)
+    if classes == 10:
+        train_dataset, val_dataset, test_dataset, train_size = dataset_npz.get_loader(
+            val_size, batch_size)
+    elif classes == 100:
+        train_dataset, val_dataset, test_dataset, train_size = dataset_npz_100.get_loader(
+            val_size, batch_size)
+        
     # Define the indices for the entire dataset
     indices = list(range(train_size))
 
@@ -125,7 +136,7 @@ def test(net, adversary, steps, filename, val_size, batch_size, data_type):
     total = 0
 
     AUTOadversary = torchattacks.AutoAttack(
-        net, norm='Linf', eps=EPS, version='standard', n_classes=10, seed=None, verbose=False)
+        net, norm='Linf', eps=EPS, version='standard', n_classes=classes, seed=None, verbose=False)
     PGDadversary = torchattacks.PGD(net, eps=EPS, alpha=ALPHA, steps=steps)
     
     net.eval()
@@ -142,31 +153,50 @@ def test(net, adversary, steps, filename, val_size, batch_size, data_type):
     #print('Total adversarial test loss:', adv_loss)acc
     print("Elapsed Time (Min): ", np.floor((time.time() - start)/60))
     
+    return trainEpochs, 100*acc_clean, 100* acc_adv
 
 
-def init_test(args):
+def init_test(args,device):
     
     filename = args.filename
-    net = ResNet18() #preactresnet.PreActResNet18() #models.resnet18() #
+    if args.network== 'wideresnet':
+        net =  WideResNet(28, num_classes=args.classes, widen_factor=10, dropRate=0.0)
+    else:
+        net = ResNet18(num_classes=args.classes)
+
     net = net.to(device)
     net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
     
-    #print('\n==> Using Training Dataset..')
-    #test(net, 'PGD', 10, filename, args.val_size, args.batch_size, 'train')
-    #print('\n==> Using Validation Dataset..')
-    #test(net, 'PGD', 20, filename, args.val_size, args.batch_size, 'val')
-    #print('\n==> Using Testing Dataset..')
-    #test(net, 'PGD', 200, filename, args.val_size, args.batch_size, 'test')
+    print('\n==> Using Training Dataset..')
+    best, train_acc, train_PGD10_acc = test(net, args.classes, 'PGD', 10, filename, args.val_size, args.batch_size, 'train')
+    print('\n==> Using Validation Dataset..')
+    best, val_acc, val_PGD20_acc = test(net, args.classes, 'PGD', 20, filename, args.val_size, args.batch_size, 'val')
+    print('\n==> Using Testing Dataset..')
+    best, test_acc, test_PGD200_acc = test(net, args.classes, 'PGD', 200, filename, args.val_size, args.batch_size, 'test')
     print('\n==> Using Testing Dataset.. (AUTOATTACK)')
-    test(net, 'auto', 10, filename, args.val_size, args.batch_size, 'test')
+    best, test_acc, test_auto_acc = test(net, args.classes, 'auto', 10, filename, args.val_size, args.batch_size, 'test')
         
+    print('==> Preparing Log-File')
+    if not os.path.isdir('results'):
+        os.mkdir('results')
+    logname = ('./results/log_' + str(args.network) + '_' + str(args.classes)  + '.csv')
+    if not os.path.exists(logname):
+        with open(logname, 'a', newline='') as logfile:
+            logwriter = csv.writer(logfile, delimiter=',')
+            logwriter.writerow(['filename','_epoch', 'train_acc', 'train_PGD10_acc','val_acc', 'val_PGD20_acc','test_acc','test_PGD200_acc','test_Auto_acc'])
+    with open(logname, 'a', newline='') as logfile:
+        logwriter = csv.writer(logfile, delimiter=',')
+        logwriter.writerow([filename, int(best) ,f'{train_acc:.6f}', f'{train_PGD10_acc:.6f}', f'{val_acc:.6f}', f'{val_PGD20_acc:.6f}'
+                            , f'{test_acc:.6f}', f'{test_PGD200_acc:.6f}', f'{test_auto_acc:.6f}'])
+    
 
 
 def main():
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
     parser.add_argument("--gpu", type=str, default="0")
-    parser.add_argument('--dataset', type=str, default="cifar10")
+    parser.add_argument('--network', type=str, default="resnet18")
+    parser.add_argument('--classes', type=int, default=10)
     parser.add_argument('--val_size', type=int, default=6000)
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument(
@@ -180,8 +210,9 @@ def main():
         type=str,
         help='name of the attack')
     args = parser.parse_args()
-
-    init_test(args)
+    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    init_test(args, device)
 
 
 if __name__ == '__main__':

@@ -22,7 +22,7 @@ class NumpyToTorchDataset(Dataset):
         return image, label
 
 # Load the dataset
-dataset = np.load('./cifar10_ddpm.npz')
+dataset = np.load('./cifar100_ddpm.npz')
 images = dataset['image']
 labels = dataset['label'].astype(np.int64)  # Convert labels to int64
 

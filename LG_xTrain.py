@@ -11,6 +11,7 @@ import warnings
 import torchattacks
 #from torchvision import models
 from resnet import *
+from wideresnet import WideResNet
 #from preact_resnet import *
 #from models import *
 from utils import progress_bar
@@ -18,6 +19,7 @@ import argparse
 import torch.backends.cudnn as cudnn
 
 import dataset_npz
+import dataset_npz_100
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
 
 from loss import LossCalulcator
@@ -49,20 +51,21 @@ TEACHER = 'NT'
 STUDENT = 'KD'
 ADV = 'AT'
 ALP = 'ALP'
-DECAY = 2e-4
 MOMENTUM = 0.9
 
-def get_model_by_name(name):
-    if name == "resnet34":
-        model = ResNet18() #models.resnet18() #
+def get_model_by_name(name, num_classes):
+    if name == "wideresnet":
+        DECAY = 5e-4
+        model = WideResNet(28, num_classes=num_classes, widen_factor=10, dropRate=0.0)
     elif name == "resnet18":
-        model = ResNet18() #models.resnet18() # 
+        DECAY = 2e-4
+        model = ResNet18(num_classes=num_classes) #models.resnet18() # 
     else:
         raise Exception('Unknown network name: {0}'.format(name))
-    return model
+    return model, DECAY
 
              
-def Train(logname, net, batch_size, train_size, train_dataset, val_dataset, beta, cutmix_prob,
+def Train(logname, net, DECAY, network, classes, batch_size, train_size, train_dataset, val_dataset, beta, cutmix_prob,
              nb_epochs=10, learning_rate=0.1, patience=200, VERSION='_v1'):
     net.train()
     start = time.time()
@@ -182,6 +185,8 @@ def Train(logname, net, batch_size, train_size, train_dataset, val_dataset, beta
             'net': net.state_dict(),
             'acc': acc,
             'val_acc': val_acc,
+            'network':network,
+            'classes':classes,
             'epoch': _epoch + 1
                     }
         # early_stopping needs the validation loss to check if it has decresed, 
@@ -196,7 +201,7 @@ def Train(logname, net, batch_size, train_size, train_dataset, val_dataset, beta
             break
         
         
-def advTrain(logname, net, batch_size, train_size, train_dataset, val_dataset, beta, cutmix_prob,
+def advTrain(logname, net, DECAY, network, classes, batch_size, train_size, train_dataset, val_dataset, beta, cutmix_prob,
              nb_epochs=10, learning_rate=0.1, patience=200, VERSION='_v1'):
     net.train()
     start = time.time()
@@ -326,6 +331,8 @@ def advTrain(logname, net, batch_size, train_size, train_dataset, val_dataset, b
             'net': net.state_dict(),
             'acc': acc,
             'val_acc': val_acc,
+            'network':network,
+            'classes':classes,
             'epoch': _epoch + 1
                     }
         # early_stopping needs the validation loss to check if it has decresed, 
@@ -340,7 +347,7 @@ def advTrain(logname, net, batch_size, train_size, train_dataset, val_dataset, b
             break
 
 
-def advALPTrain(logname, net, batch_size, train_size, device, train_dataset, val_dataset, beta, cutmix_prob,
+def advALPTrain(logname, net, DECAY, network, classes, batch_size, train_size, device, train_dataset, val_dataset, beta, cutmix_prob,
                nb_epochs=10, distillation_weight=0.5, temperature=1, training_loss='alp', learning_rate=0.1, patience=200, VERSION='v1'):
     net.train()
     start = time.time()
@@ -476,6 +483,8 @@ def advALPTrain(logname, net, batch_size, train_size, device, train_dataset, val
             'net': net.state_dict(),
             'acc': acc,
             'val_acc': val_acc,
+            'network':network,
+            'classes':classes,
             'epoch': _epoch + 1
                     }
         # early_stopping needs the validation loss to check if it has decresed, 
@@ -490,7 +499,7 @@ def advALPTrain(logname, net, batch_size, train_size, device, train_dataset, val
             break
    
 
-def advKDTrain(logname, net, batch_size, train_size, net_t, device, train_dataset, val_dataset, beta, cutmix_prob,
+def advKDTrain(logname, net, DECAY, network, classes, batch_size, train_size, net_t, device, train_dataset, val_dataset, beta, cutmix_prob,
                nb_epochs=10, distillation_weight=0.5, temperature=1, training_loss='nt', learning_rate=0.1, patience=200, VERSION='v1'):
     net.train()
     net_t.eval()
@@ -631,6 +640,8 @@ def advKDTrain(logname, net, batch_size, train_size, net_t, device, train_datase
             'net': net.state_dict(),
             'acc': acc,
             'val_acc': val_acc,
+            'network':network,
+            'classes':classes,
             'epoch': _epoch + 1
                     }
         # early_stopping needs the validation loss to check if it has decresed, 
@@ -721,8 +732,16 @@ def main(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 
-    train_dataset, val_dataset, test_dataset, train_size = dataset_npz.get_loader(
-        args.val_size, args.batch_size)
+    if args.classes == 10:
+        train_dataset, val_dataset, test_dataset, train_size = dataset_npz.get_loader(
+            args.val_size, args.batch_size)
+    elif args.classes == 100:
+        train_dataset, val_dataset, test_dataset, train_size = dataset_npz_100.get_loader(
+            args.val_size, args.batch_size)
+    else:
+        raise AssertionError(
+            "please choose classes (--classes) 10 for cifar10, 100 for cifar100")
+
     
     print('==> Preparing Log-File')
     if not os.path.isdir('results'):
@@ -738,22 +757,22 @@ def main(args):
    
     # Model
     print('==> Building model..')
-    print('==> network:', args.netname)
-    net = get_model_by_name(args.netname)
+    print('==> network:', args.network)
+    net, DECAY = get_model_by_name(args.network, num_classes= args.classes)
     net = net.to(device)
     if device == 'cuda':
         net = torch.nn.DataParallel(net, device_ids=DEVICES_IDS)
         cudnn.benchmark = True
         
     if args.method == STANDARD:
-        Train(logname, net, args.batch_size, train_size, train_dataset, val_dataset, args.beta, args.cutmix_prob, args.epochs, args.lr, args.patience, args.version)
+        Train(logname, net, DECAY, args.network, args.classes, args.batch_size, train_size, train_dataset, val_dataset, args.beta, args.cutmix_prob, args.epochs, args.lr, args.patience, args.version)
     elif args.method == ADVERSARIAL:
-        advTrain(logname, net, args.batch_size, train_size, train_dataset, val_dataset, args.beta, args.cutmix_prob, args.epochs, args.lr, args.patience, args.version)
+        advTrain(logname, net, DECAY, args.network, args.classes, args.batch_size, train_size, train_dataset, val_dataset, args.beta, args.cutmix_prob, args.epochs, args.lr, args.patience, args.version)
     elif args.method == ALPISTILLATION:
-        advALPTrain(logname, net, args.batch_size, train_size, device, train_dataset, val_dataset, args.beta, args.cutmix_prob, args.epochs,args.distillation_weight, args.temperature,
+        advALPTrain(logname, net, DECAY, args.network, args.classes, args.batch_size, train_size, device, train_dataset, val_dataset, args.beta, args.cutmix_prob, args.epochs,args.distillation_weight, args.temperature,
                   args.loss, args.lr, args.patience, args.version)
     elif args.method == KDISTILLATION:
-        net_t = get_model_by_name(args.netname)
+        net_t, DECAY = get_model_by_name(args.network, num_classes= args.classes)
         net_t = net_t.to(device)
         if device == 'cuda':
             net_t = torch.nn.DataParallel(net_t, device_ids=DEVICES_IDS)
@@ -767,7 +786,7 @@ def main(args):
         net_t.eval() # auto ignore dropout layer
         #print(net_t)
         print('==> loaded Teacher')
-        advKDTrain(logname, net, args.batch_size, train_size, net_t, device, train_dataset, val_dataset, args.beta, args.cutmix_prob, args.epochs,args.distillation_weight, args.temperature,
+        advKDTrain(logname, net, DECAY, args.network, args.classes, args.batch_size, train_size, net_t, device, train_dataset, val_dataset, args.beta, args.cutmix_prob, args.epochs,args.distillation_weight, args.temperature,
                   args.loss, args.lr, args.patience, args.version)
     else:
         raise AssertionError(
@@ -789,7 +808,8 @@ def adjust_learning_rate(learning_rate,optimizer, epoch):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
     parser.add_argument("--gpu", type=str, default="0")
-    parser.add_argument('--dataset', type=str, default="cifar10")
+    parser.add_argument('--network', type=str, default="resnet18")
+    parser.add_argument('--classes', type=int, default=10)
     parser.add_argument('--method', type=str, default="nt", help='method used (nt:Standard, at:adversarial, alp:logit pairing, kd:knowledge distillation)')
     parser.add_argument('--loss', type=str, default="kd")
     parser.add_argument('--beta', default=0.0, type=float,
@@ -800,7 +820,6 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--epochs', type=int, default=200)
     parser.add_argument('--patience', type=int, default=200)
-    parser.add_argument('--netname', type=str, default="resnet18")
     parser.add_argument('--teacher', type=str, default="NT")
     parser.add_argument('--version', type=str, default="v1")
     parser.add_argument('--temperature', default=1.0,
