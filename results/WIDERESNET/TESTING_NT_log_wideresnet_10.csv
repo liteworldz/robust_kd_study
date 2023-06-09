@@ -1,0 +1,3 @@
+filename,_epoch,train_acc,train_PGD10_acc,val_acc,val_PGD20_acc,test_acc,test_PGD200_acc,test_Auto_acc
+_Net_wideresnet__C_10__200_NT_NT_LG_C_10_Wideresnet_.pth,200,92.540909,0.027253,92.616667,0.000000,91.490000,0.000000,0.000000
+_Net_wideresnet__C_10__178_NT_NT_LG_C_10_Wideresnet_.pth,178,92.590909,0.029524,92.750000,0.033245,91.380000,0.000000,0.000000
