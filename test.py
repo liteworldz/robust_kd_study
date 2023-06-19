@@ -92,6 +92,12 @@ def test(net, classes, adversary, steps, filename, val_size, batch_size, data_ty
 
     net.load_state_dict(checkpoint)
 
+    # Iterate over the model's modules
+    for name, module in net.named_modules():
+        if isinstance(module, torch.nn.Conv2d):
+            # Print the shape of the weights for convolutional layers
+            print(f"Convolutional layer '{name}': {module.weight.shape}")
+    
     if classes == 100:
         trainloader, valloader, testloader = dataset_cifar100.get_loader(val_size, batch_size)
     else:

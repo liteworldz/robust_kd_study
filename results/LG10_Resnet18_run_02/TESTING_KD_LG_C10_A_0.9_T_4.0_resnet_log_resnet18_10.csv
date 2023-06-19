@@ -1,0 +1,3 @@
+filename,_epoch,train_acc,train_PGD10_acc,val_acc,val_PGD20_acc,test_acc,test_PGD200_acc,test_Auto_acc
+_Net_resnet18__C_10__105_KD_LG_C10_A_0.9_T_4.0_resnet_alpkdce1_A_0.9_T_4.0_.pth,105,89.605000,64.828758,83.210000,53.619462,84.560000,54.440269,53.570016
+_Net_resnet18__C_10__200_KD_LG_C10_A_0.9_T_4.0_resnet_alpkdce1_A_0.9_T_4.0_.pth,200,97.943333,80.215552,84.000000,48.931962,84.310000,49.367089,48.457278

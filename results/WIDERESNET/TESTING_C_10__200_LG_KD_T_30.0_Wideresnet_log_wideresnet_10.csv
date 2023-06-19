@@ -1,0 +1,4 @@
+filename,_epoch,train_acc,train_PGD10_acc,val_acc,val_PGD20_acc,test_acc,test_PGD200_acc,test_Auto_acc
+_Net_wideresnet__C_10__200_LG_KD_A_0.5_T_30.0_Wideresnet_C10_alpkdce1_A_0.5_T_30.0_.pth,200,99.876667,98.474147,83.940000,47.507911,84.160000,46.914557,46.212421
+_Net_wideresnet__C_10__200_LG_KD_A_0.1_T_30.0_Wideresnet_C10_alpkdce1_A_0.1_T_30.0_.pth,200,99.966667,98.452492,83.190000,47.161788,83.590000,46.865111,46.588212
+_Net_wideresnet__C_10__200_LG_KD_A_0.9_T_30.0_Wideresnet_C10_alpkdce1_A_0.9_T_30.0_.pth,200,99.753333,98.159315,83.680000,47.923259,83.730000,47.379351,46.627769

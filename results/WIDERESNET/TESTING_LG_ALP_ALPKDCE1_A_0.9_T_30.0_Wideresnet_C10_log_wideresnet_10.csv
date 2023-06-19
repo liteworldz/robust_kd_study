@@ -1,0 +1,2 @@
+filename,_epoch,train_acc,train_PGD10_acc,val_acc,val_PGD20_acc,test_acc,test_PGD200_acc,test_Auto_acc
+_Net_wideresnet__C_10__200_LG_ALP_ALPKDCE1_A_0.9_T_30.0_Wideresnet_C10_alpkdce1_A_0.9_T_30.0_.pth,200,99.186667,95.320829,82.780000,47.478244,83.090000,47.774921,47.359573
