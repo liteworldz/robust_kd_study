@@ -20,12 +20,12 @@ class LossCalulcator(nn.Module):
         self.CELoss              = nn.CrossEntropyLoss()
         self.MSELoss             = nn.MSELoss() 
 
-    def forward(self, benign, targets, adversarial):
+    def forward(self, benign, targets, adversarial, teacher):
         # Distillation Loss
         soft_target_loss = 0.0
         hard_target_loss = 0.0
         
-   
+
         if self.training_loss == 'alp':
             soft_target_loss = self.MSELoss(adversarial,  benign)
             hard_target_loss = .5 * (F.cross_entropy(benign, targets, reduction='mean') + F.cross_entropy(adversarial, targets, reduction='mean'))
@@ -33,6 +33,11 @@ class LossCalulcator(nn.Module):
         elif self.training_loss == 'alpkdce1':
             soft_target_loss = self.kldiv(F.log_softmax(adversarial/self.temperature, dim=1), 
                                         F.softmax(benign/self.temperature, dim=1)) * (self.temperature ** 2)
+            hard_target_loss = .5 * (F.cross_entropy(benign, targets, reduction='mean') + F.cross_entropy(adversarial, targets, reduction='mean'))
+            total_loss = ( hard_target_loss *  (1 -  self.distillation_weight)) + (soft_target_loss  * self.distillation_weight)
+        elif self.training_loss == 'alpkdce':
+            soft_target_loss = self.kldiv(F.log_softmax(adversarial/self.temperature, dim=1), 
+                                        F.softmax(teacher/self.temperature, dim=1)) * (self.temperature ** 2)
             hard_target_loss = .5 * (F.cross_entropy(benign, targets, reduction='mean') + F.cross_entropy(adversarial, targets, reduction='mean'))
             total_loss = ( hard_target_loss *  (1 -  self.distillation_weight)) + (soft_target_loss  * self.distillation_weight)
         
