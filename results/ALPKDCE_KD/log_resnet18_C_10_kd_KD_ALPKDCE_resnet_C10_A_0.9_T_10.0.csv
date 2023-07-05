@@ -1,0 +1,4 @@
+_epoch,train_loss,valid_loss,acc,val_acc,lr,type,hard_loss,soft_loss,total_loss,alpha,temp,early_stopping,elapsed_time
+1,nan,nan,0.101,0.101,0.1000,alpkdce,"nan, nan, nan",0.9,10.0,0,2
+2,nan,nan,0.100,0.101,0.1000,alpkdce,"nan, nan, nan",0.9,10.0,0,5
+3,nan,nan,0.100,0.101,0.1000,alpkdce,"nan, nan, nan",0.9,10.0,0,7

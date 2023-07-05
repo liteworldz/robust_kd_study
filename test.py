@@ -166,7 +166,7 @@ def init_test(args, device):
     best, test_acc, test_PGD200_acc = test(net, args.classes, 'PGD', 200, filename, args.val_size, args.batch_size, 'test')
     print('\n==> Using Testing Dataset.. (AUTOATTACK)')
     best, test_acc, test_auto_acc = test(net, args.classes, 'auto', 10, filename, args.val_size, args.batch_size, 'test')
-        
+    '''    
     print('==> Preparing Log-File')
     if not os.path.isdir('results'):
         os.mkdir('results')
@@ -180,7 +180,7 @@ def init_test(args, device):
         logwriter.writerow([filename, int(best) ,f'{train_acc:.6f}', f'{train_PGD10_acc:.6f}', f'{val_acc:.6f}', f'{val_PGD20_acc:.6f}'
                             , f'{test_acc:.6f}', f'{test_PGD200_acc:.6f}', f'{test_auto_acc:.6f}'])
     
-
+    '''
 
 def main():
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')

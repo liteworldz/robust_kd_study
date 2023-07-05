@@ -1,0 +1,13 @@
+_epoch,train_loss,valid_loss,acc,val_acc,lr,type,hard_loss,soft_loss,total_loss,alpha,temp,early_stopping,elapsed_time
+1,nan,nan,0.100,0.101,0.1000,alpkdce,"nan, nan, nan",0.9,4.0,0,2
+2,nan,nan,0.100,0.101,0.1000,alpkdce,"nan, nan, nan",0.9,4.0,0,5
+3,nan,nan,0.100,0.101,0.1000,alpkdce,"nan, nan, nan",0.9,4.0,0,7
+4,nan,nan,0.100,0.101,0.1000,alpkdce,"nan, nan, nan",0.9,4.0,0,10
+5,nan,nan,0.100,0.101,0.1000,alpkdce,"nan, nan, nan",0.9,4.0,0,12
+6,nan,nan,0.100,0.101,0.1000,alpkdce,"nan, nan, nan",0.9,4.0,0,15
+7,nan,nan,0.100,0.101,0.1000,alpkdce,"nan, nan, nan",0.9,4.0,0,17
+8,nan,nan,0.100,0.101,0.1000,alpkdce,"nan, nan, nan",0.9,4.0,0,20
+9,nan,nan,0.100,0.101,0.1000,alpkdce,"nan, nan, nan",0.9,4.0,0,22
+10,nan,nan,0.100,0.101,0.1000,alpkdce,"nan, nan, nan",0.9,4.0,0,25
+11,nan,nan,0.100,0.101,0.1000,alpkdce,"nan, nan, nan",0.9,4.0,0,27
+12,nan,nan,0.100,0.101,0.1000,alpkdce,"nan, nan, nan",0.9,4.0,0,30

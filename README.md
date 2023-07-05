@@ -10,4 +10,5 @@ conda activate advkd
 conda install pytorch torchvision torchaudio pytorch-cuda=11.6 -c pytorch -c nvidia 
 pip install torchattacks argparse scipy 
 pip install labml-helpers
+pip3 install -U scikit-learn
 ```

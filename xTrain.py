@@ -38,7 +38,7 @@ DEVICES_IDS = [0]
 '''
 DEFAULT CONSTANTS
 '''
-EVAL_INDEX = 0  # after this epoch index will start evaluating model during training 
+EVAL_INDEX = 100  # after this epoch index will start evaluating model during training 
 EPS = 8/255
 ALPHA = 2/255
 STEPS = 10
