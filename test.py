@@ -158,10 +158,10 @@ def init_test(args, device):
     net = torch.nn.DataParallel(net)
     cudnn.benchmark = True        
 
-    print('\n==> Using Training Dataset..')
-    best, train_acc, train_PGD10_acc = test(net, args.classes, 'PGD', 10, filename, args.val_size, args.batch_size, 'train')
-    print('\n==> Using Validation Dataset..')
-    best, val_acc, val_PGD20_acc = test(net, args.classes, 'PGD', 20, filename, args.val_size, args.batch_size, 'val')
+    #print('\n==> Using Training Dataset..')
+    #best, train_acc, train_PGD10_acc = test(net, args.classes, 'PGD', 10, filename, args.val_size, args.batch_size, 'train')
+    #print('\n==> Using Validation Dataset..')
+    #best, val_acc, val_PGD20_acc = test(net, args.classes, 'PGD', 20, filename, args.val_size, args.batch_size, 'val')
     print('\n==> Using Testing Dataset..')
     best, test_acc, test_PGD200_acc = test(net, args.classes, 'PGD', 200, filename, args.val_size, args.batch_size, 'test')
     print('\n==> Using Testing Dataset.. (AUTOATTACK)')

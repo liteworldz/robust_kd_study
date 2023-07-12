@@ -1,0 +1,3 @@
+filename,_epoch,train_acc,train_PGD10_acc,val_acc,val_PGD20_acc,test_acc,test_PGD200_acc,test_Auto_acc
+_Net_resnet18__C_10__119_CUSTOM6_A_0.9_T_30.0_KD_2ndRUN_custom6_A_0.9_T_30.0_.pth,119,78.843182,55.879815,76.000000,49.268617,76.390000,48.279272,46.954114
+_Net_resnet18__C_10__153_CUSTOM6_A_0.9_T_30.0_KD_2ndRUN_custom6_A_0.9_T_30.0_.pth,153,84.397727,61.968568,79.650000,50.864362,80.170000,49.119858,48.239715
