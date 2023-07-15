@@ -92,12 +92,6 @@ def test(net, classes, adversary, steps, filename, val_size, batch_size, data_ty
 
     net.load_state_dict(checkpoint)
 
-    # Iterate over the model's modules
-    for name, module in net.named_modules():
-        if isinstance(module, torch.nn.Conv2d):
-            # Print the shape of the weights for convolutional layers
-            print(f"Convolutional layer '{name}': {module.weight.shape}")
-    
     if classes == 100:
         trainloader, valloader, testloader = dataset_cifar100.get_loader(val_size, batch_size)
     else:
@@ -158,15 +152,15 @@ def init_test(args, device):
     net = torch.nn.DataParallel(net)
     cudnn.benchmark = True        
 
-    #print('\n==> Using Training Dataset..')
-    #best, train_acc, train_PGD10_acc = test(net, args.classes, 'PGD', 10, filename, args.val_size, args.batch_size, 'train')
-    #print('\n==> Using Validation Dataset..')
-    #best, val_acc, val_PGD20_acc = test(net, args.classes, 'PGD', 20, filename, args.val_size, args.batch_size, 'val')
+    print('\n==> Using Training Dataset..')
+    best, train_acc, train_PGD10_acc = test(net, args.classes, 'PGD', 10, filename, args.val_size, args.batch_size, 'train')
+    print('\n==> Using Validation Dataset..')
+    best, val_acc, val_PGD20_acc = test(net, args.classes, 'PGD', 20, filename, args.val_size, args.batch_size, 'val')
     print('\n==> Using Testing Dataset..')
     best, test_acc, test_PGD200_acc = test(net, args.classes, 'PGD', 200, filename, args.val_size, args.batch_size, 'test')
     print('\n==> Using Testing Dataset.. (AUTOATTACK)')
     best, test_acc, test_auto_acc = test(net, args.classes, 'auto', 10, filename, args.val_size, args.batch_size, 'test')
-    '''    
+        
     print('==> Preparing Log-File')
     if not os.path.isdir('results'):
         os.mkdir('results')
@@ -180,7 +174,7 @@ def init_test(args, device):
         logwriter.writerow([filename, int(best) ,f'{train_acc:.6f}', f'{train_PGD10_acc:.6f}', f'{val_acc:.6f}', f'{val_PGD20_acc:.6f}'
                             , f'{test_acc:.6f}', f'{test_PGD200_acc:.6f}', f'{test_auto_acc:.6f}'])
     
-    '''
+
 
 def main():
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
