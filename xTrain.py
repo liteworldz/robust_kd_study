@@ -222,6 +222,7 @@ def advTrain(logname, net, DECAY, train_loader, val_loader, network, classes, be
     # breakstep = 0
     print("Adversarial Training (Robust) Started..")
     attack = torchattacks.PGD(net, eps=EPS, alpha=ALPHA, steps=STEPS)
+
     if beta > 0 :
         print('\n=> CutMix')
     for _epoch in range(nb_epochs):
@@ -267,6 +268,13 @@ def advTrain(logname, net, DECAY, train_loader, val_loader, network, classes, be
                             target_b.cpu().detach().numpy()).sum()
             else:
                 adv = attack(xs, ys)
+                delta =  adv - xs
+                y1 = xs + delta * 2
+                y2 = xs * 2 - delta
+                adv = torch.mean(torch.stack((y1, y2), dim=0), dim=0)
+                #print(torch._shape_as_tensor(adv))
+                #sys.exit()
+                #ys = torch.cat((ys,ys), dim=0)
                 preds = net(adv)
                 loss = loss_func(preds, ys)
                 preds_np = preds.cpu().detach().numpy()
@@ -558,6 +566,7 @@ def advKDTrain(logname, net, DECAY, net_t, device, train_loader, val_loader, net
             else:
                 # compute output
                 adv = attack(xs, ys)
+                adv = APGD(model=net,x_natural= xs, teacher=net_t, loss=training_loss)
                 preds_t = net_t(xs)
                 preds =  net(xs)
                 preds_s =  net(adv)
@@ -624,6 +633,47 @@ def advKDTrain(logname, net, DECAY, net_t, device, train_loader, val_loader, net
         if early_stopping.early_stop:
             print("Early stopping")
             break
+
+def APGD(model, x_natural, teacher, loss):
+    '''
+    EPS = 8/255
+    ALPHA = 2/255
+    STEPS = 10
+    '''
+    criterion_kl = nn.KLDivLoss(reduction='batchmean')
+    step_size= 2/255  # 0.003
+    epsilon= 8/255    # 0.031
+    perturb_steps=10  # 10
+    T = 30.0
+
+    model.eval()
+    edge1 = criterion_kl(F.log_softmax(model(x_natural)/T, dim=1), F.softmax(teacher(x_natural)/T, dim=1))
+    edge2 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(teacher(x_natural)/T, dim=1))
+    edge3 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(model(x_natural)/T, dim=1))
+    # generate adversarial example
+    x_adv = x_natural.detach() + torch.empty_like(x_natural).uniform_(-epsilon, epsilon)
+    #x_adv = x_natural.detach() + 0.001 * torch.randn(x_natural.shape).cuda().detach()
+    for _ in range(perturb_steps):
+            x_adv.requires_grad_()
+            with torch.enable_grad():
+                if loss == 'kl_2':
+                    loss_kl = edge2
+                elif loss == 'kl_1_2':
+                    loss_kl = .5 * (edge1 + edge2)
+                elif loss == 'kl_1_3':
+                    loss_kl = .5 * (edge1 + edge3)
+                elif loss == 'kl_2_3':
+                    loss_kl = .5 * (edge2 + edge3)
+                elif loss == 'kl_1_2_3':
+                    loss_kl =  (edge1 + edge2 + edge3) / 3
+            grad = torch.autograd.grad(loss_kl, [x_adv])[0]
+            x_adv = x_adv.detach() + step_size * torch.sign(grad.detach())
+            x_adv = torch.min(torch.max(x_adv, x_natural - epsilon), x_natural + epsilon)
+            x_adv = torch.clamp(x_adv, 0.0, 1.0)
+    
+    model.train()
+    x_adv = Variable(torch.clamp(x_adv, 0.0, 1.0), requires_grad=False)
+    return x_adv
 
 def rand_bbox(size, lam):
     W = size[2]
@@ -762,6 +812,7 @@ def main(args):
     #evalClean(net, valloader)
     #evalAdvAttack(net, valloader)
 
+
 def adjust_learning_rate(learning_rate,optimizer, epoch):
     lr = learning_rate
     if epoch >= 100:
@@ -771,7 +822,23 @@ def adjust_learning_rate(learning_rate,optimizer, epoch):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
     return optimizer, lr
-        
+
+'''
+def adjust_learning_rate(learning_rate,optimizer, epoch):
+    """decrease the learning rate"""
+    lr = .1
+    if epoch >= 75:
+        lr = .1 * 0.1
+    if epoch >= 90:
+        lr = .1 * 0.01
+    if epoch >= 100:
+        lr = .1 * 0.001
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+    return optimizer, lr
+'''
+
+  
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
     parser.add_argument("--gpu", type=str, default="0")
