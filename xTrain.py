@@ -565,8 +565,8 @@ def advKDTrain(logname, net, DECAY, net_t, device, train_loader, val_loader, net
                             target_b.cpu().detach().numpy()).sum()
             else:
                 # compute output
-                adv = attack(xs, ys)
-                adv = APGD(model=net,x_natural= xs, teacher=net_t, loss=training_loss)
+                #adv = attack(xs, ys)
+                adv = APGD(model=net,x_natural= xs, teacher=net_t, loss=training_loss, T=temperature, alpha=distillation_weight)
                 preds_t = net_t(xs)
                 preds =  net(xs)
                 preds_s =  net(adv)
@@ -634,7 +634,7 @@ def advKDTrain(logname, net, DECAY, net_t, device, train_loader, val_loader, net
             print("Early stopping")
             break
 
-def APGD(model, x_natural, teacher, loss):
+def APGD(model, x_natural, teacher, loss, T=30.0, alpha =0.9):
     '''
     EPS = 8/255
     ALPHA = 2/255
@@ -644,18 +644,20 @@ def APGD(model, x_natural, teacher, loss):
     step_size= 2/255  # 0.003
     epsilon= 8/255    # 0.031
     perturb_steps=10  # 10
-    T = 30.0
 
     model.eval()
-    edge1 = criterion_kl(F.log_softmax(model(x_natural)/T, dim=1), F.softmax(teacher(x_natural)/T, dim=1))
-    edge2 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(teacher(x_natural)/T, dim=1))
-    edge3 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(model(x_natural)/T, dim=1))
     # generate adversarial example
-    x_adv = x_natural.detach() + torch.empty_like(x_natural).uniform_(-epsilon, epsilon)
+    x_adv = x_natural.detach() + torch.empty_like(x_natural).uniform_(-epsilon, epsilon).cuda().detach()
+    b_logits_T = teacher(x_natural)
+    b_logits_S = model(x_natural)
     #x_adv = x_natural.detach() + 0.001 * torch.randn(x_natural.shape).cuda().detach()
+
     for _ in range(perturb_steps):
             x_adv.requires_grad_()
             with torch.enable_grad():
+                edge1 = criterion_kl(F.log_softmax(b_logits_S/T, dim=1), F.softmax(b_logits_T/T, dim=1)) 
+                edge2 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(b_logits_T/T, dim=1)) 
+                edge3 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(b_logits_S/T, dim=1)) 
                 if loss == 'kl_2':
                     loss_kl = edge2
                 elif loss == 'kl_1_2':
@@ -663,13 +665,14 @@ def APGD(model, x_natural, teacher, loss):
                 elif loss == 'kl_1_3':
                     loss_kl = .5 * (edge1 + edge3)
                 elif loss == 'kl_2_3':
-                    loss_kl = .5 * (edge2 + edge3)
+                    loss_kl = (1-alpha) * edge2 + alpha * edge3
                 elif loss == 'kl_1_2_3':
                     loss_kl =  (edge1 + edge2 + edge3) / 3
             grad = torch.autograd.grad(loss_kl, [x_adv])[0]
             x_adv = x_adv.detach() + step_size * torch.sign(grad.detach())
             x_adv = torch.min(torch.max(x_adv, x_natural - epsilon), x_natural + epsilon)
             x_adv = torch.clamp(x_adv, 0.0, 1.0)
+            
     
     model.train()
     x_adv = Variable(torch.clamp(x_adv, 0.0, 1.0), requires_grad=False)
@@ -789,7 +792,8 @@ def main(args):
         advALPTrain(logname, net, DECAY, device, trainloader, valloader,args.network, args.classes, args.beta, args.cutmix_prob, args.epochs,args.distillation_weight, args.temperature,
                   args.loss, args.lr, args.patience, args.version)
     elif args.method == KDISTILLATION:
-        net_t, DECAY = get_model_by_name(args.network, num_classes= args.classes)
+        print('..loading teacher')
+        net_t, _ = get_model_by_name(args.network, num_classes= args.classes)
         net_t = net_t.to(device)
         if device == 'cuda':
             net_t = torch.nn.DataParallel(net_t, device_ids=DEVICES_IDS)
