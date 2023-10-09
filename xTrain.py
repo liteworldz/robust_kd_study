@@ -267,13 +267,10 @@ def advTrain(logname, net, DECAY, train_loader, val_loader, network, classes, be
                 correct += (np.argmax(preds_np_b, axis=1) ==
                             target_b.cpu().detach().numpy()).sum()
             else:
+                xsa = shift_rows_and_reduce_batch(batch=xs, beta=0.1) 
+                xs = .5*(xs + xsa)
                 adv = attack(xs, ys)
-                delta =  adv - xs
-                y1 = xs + delta * 2
-                y2 = xs * 2 - delta
-                adv = torch.mean(torch.stack((y1, y2), dim=0), dim=0)
-                #print(torch._shape_as_tensor(adv))
-                #sys.exit()
+                #adv = torch.cat((adv,adv_shift), dim=0)
                 #ys = torch.cat((ys,ys), dim=0)
                 preds = net(adv)
                 loss = loss_func(preds, ys)
@@ -337,6 +334,25 @@ def advTrain(logname, net, DECAY, train_loader, val_loader, network, classes, be
             print("Early stopping")
             break
 
+
+def shift_rows_and_reduce_batch(batch, beta=0.001):
+    shifted_batch = torch.zeros_like(batch)  # Create a batch of zeros with the same shape as the input batch
+
+    for i in range(batch.shape[0]):
+        image = batch[i]
+        shifted_image = torch.zeros_like(image)  # Create a tensor of zeros with the same shape as the image
+
+        for j in range(image.shape[0]):
+            if j % 2 == 0:  # Even row
+                shifted_image[j] = torch.roll(image[j], shifts=1, dims=1)  # Shift right across columns
+            else:  # Odd row
+                shifted_image[j] = torch.roll(image[j], shifts=-1, dims=1)  # Shift left across columns
+
+        # Reduce values by beta (0.001) while ensuring they stay within [0, 1]
+        shifted_image = torch.clamp(shifted_image - beta, 0, 1)
+        shifted_batch[i] = shifted_image
+
+    return shifted_batch
 
 def advALPTrain(logname, net, DECAY, device, train_loader, val_loader, network, classes, beta, cutmix_prob,
                nb_epochs=10, distillation_weight=0.5, temperature=1, training_loss='alp', learning_rate=0.1, patience=200, VERSION='v1'):
@@ -647,7 +663,9 @@ def APGD(model, x_natural, teacher, loss, T=30.0, alpha =0.9):
 
     model.eval()
     # generate adversarial example
-    x_adv = x_natural.detach() + torch.empty_like(x_natural).uniform_(-epsilon, epsilon).cuda().detach()
+    delta = torch.empty_like(x_natural).uniform_(-epsilon, epsilon).cuda().detach()
+    x_adv = x_natural.detach() + delta
+    x_adv2 = x_natural.detach() - delta
     b_logits_T = teacher(x_natural)
     b_logits_S = model(x_natural)
     #x_adv = x_natural.detach() + 0.001 * torch.randn(x_natural.shape).cuda().detach()
@@ -656,8 +674,8 @@ def APGD(model, x_natural, teacher, loss, T=30.0, alpha =0.9):
             x_adv.requires_grad_()
             with torch.enable_grad():
                 edge1 = criterion_kl(F.log_softmax(b_logits_S/T, dim=1), F.softmax(b_logits_T/T, dim=1)) 
-                edge2 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(b_logits_T/T, dim=1)) 
-                edge3 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(b_logits_S/T, dim=1)) 
+                edge2 = criterion_kl(F.log_softmax(model(x_adv2)/T, dim=1), F.softmax(b_logits_T/T, dim=1)) 
+                edge3 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(model(x_adv2)/T, dim=1)) 
                 if loss == 'kl_2':
                     loss_kl = edge2
                 elif loss == 'kl_1_2':
@@ -668,15 +686,18 @@ def APGD(model, x_natural, teacher, loss, T=30.0, alpha =0.9):
                     loss_kl = (1-alpha) * edge2 + alpha * edge3
                 elif loss == 'kl_1_2_3':
                     loss_kl =  (edge1 + edge2 + edge3) / 3
+                elif loss == 'trades':
+                    loss_kl = criterion_kl(F.log_softmax(model(x_adv), dim=1), F.softmax(model(x_natural), dim=1)) 
+                    
             grad = torch.autograd.grad(loss_kl, [x_adv])[0]
             x_adv = x_adv.detach() + step_size * torch.sign(grad.detach())
             x_adv = torch.min(torch.max(x_adv, x_natural - epsilon), x_natural + epsilon)
             x_adv = torch.clamp(x_adv, 0.0, 1.0)
-            
     
     model.train()
     x_adv = Variable(torch.clamp(x_adv, 0.0, 1.0), requires_grad=False)
     return x_adv
+
 
 def rand_bbox(size, lam):
     W = size[2]
@@ -827,22 +848,9 @@ def adjust_learning_rate(learning_rate,optimizer, epoch):
         param_group['lr'] = lr
     return optimizer, lr
 
-'''
-def adjust_learning_rate(learning_rate,optimizer, epoch):
-    """decrease the learning rate"""
-    lr = .1
-    if epoch >= 75:
-        lr = .1 * 0.1
-    if epoch >= 90:
-        lr = .1 * 0.01
-    if epoch >= 100:
-        lr = .1 * 0.001
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-    return optimizer, lr
-'''
 
-  
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
     parser.add_argument("--gpu", type=str, default="0")
@@ -854,7 +862,7 @@ if __name__ == '__main__':
                     help='hyperparameter beta - 0.0 CutMix is not used, 1.0 CutMix used')
     parser.add_argument('--cutmix_prob', default=0.5, type=float,
                     help='cutmix probability')
-    parser.add_argument('--val_size', type=int, default=6000)
+    parser.add_argument('--val_size', type=int, default=1000)
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--epochs', type=int, default=200)
     parser.add_argument('--patience', type=int, default=200)

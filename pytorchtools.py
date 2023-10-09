@@ -33,7 +33,7 @@ class EarlyStopping:
 
         score = val_acc
         # alwyas save the last epoch
-        if epoch == 200:
+        if epoch == 200 or epoch == 154:
             self.save_checkpoint(val_acc, model, type, state)
         elif self.best_score is None:
             self.best_score = score

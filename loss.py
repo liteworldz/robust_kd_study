@@ -53,6 +53,11 @@ class LossCalulcator(nn.Module):
             total_loss = (1-self.distillation_weight) * edge2 + self.distillation_weight * edge3
         elif self.training_loss == 'kl_1_2_3':
             total_loss =  (edge1 + edge2 + edge3) / 3
+        elif self.training_loss == 'trades':
+            hard_target_loss = F.cross_entropy(benign, targets)
+            soft_target_loss = self.kldiv(F.log_softmax(adversarial, dim=1), F.softmax(benign, dim=1)) 
+            total_loss = hard_target_loss + 5.0 * soft_target_loss
+        
         
         # Logging
         #if self.distillation_weight > 0:

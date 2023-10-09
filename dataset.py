@@ -3,7 +3,7 @@ from torchvision import datasets
 import torchvision.transforms as transforms
 
 
-def get_loader(val_size=5000, batch_size=128):
+def get_loader(val_size=1000, batch_size=128):
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
         transforms.RandomHorizontalFlip(),
