@@ -5,8 +5,8 @@ import torchvision.transforms as transforms
 
 def get_loader(val_size=1000, batch_size=128):
     transform_train = transforms.Compose([
-        transforms.RandomCrop(32, padding=4),
-        transforms.RandomHorizontalFlip(),
+        #transforms.RandomCrop(32, padding=4),
+        #transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
     ])
 
@@ -21,7 +21,7 @@ def get_loader(val_size=1000, batch_size=128):
     trainset, valset = torch.utils.data.random_split(trainset, [50000 - val_size, val_size],
                                                          torch.Generator().manual_seed(35))
     trainloader = torch.utils.data.DataLoader(
-        trainset, batch_size, shuffle=True, num_workers=0)
+        trainset, batch_size, shuffle=False, num_workers=0)
 
     valloader = torch.utils.data.DataLoader(
         valset, batch_size, shuffle=False, num_workers=0)

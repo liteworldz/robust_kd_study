@@ -267,11 +267,7 @@ def advTrain(logname, net, DECAY, train_loader, val_loader, network, classes, be
                 correct += (np.argmax(preds_np_b, axis=1) ==
                             target_b.cpu().detach().numpy()).sum()
             else:
-                xsa = shift_rows_and_reduce_batch(batch=xs, beta=0.1) 
-                xs = .5*(xs + xsa)
                 adv = attack(xs, ys)
-                #adv = torch.cat((adv,adv_shift), dim=0)
-                #ys = torch.cat((ys,ys), dim=0)
                 preds = net(adv)
                 loss = loss_func(preds, ys)
                 preds_np = preds.cpu().detach().numpy()
@@ -333,26 +329,6 @@ def advTrain(logname, net, DECAY, train_loader, val_loader, network, classes, be
         if early_stopping.early_stop:
             print("Early stopping")
             break
-
-
-def shift_rows_and_reduce_batch(batch, beta=0.001):
-    shifted_batch = torch.zeros_like(batch)  # Create a batch of zeros with the same shape as the input batch
-
-    for i in range(batch.shape[0]):
-        image = batch[i]
-        shifted_image = torch.zeros_like(image)  # Create a tensor of zeros with the same shape as the image
-
-        for j in range(image.shape[0]):
-            if j % 2 == 0:  # Even row
-                shifted_image[j] = torch.roll(image[j], shifts=1, dims=1)  # Shift right across columns
-            else:  # Odd row
-                shifted_image[j] = torch.roll(image[j], shifts=-1, dims=1)  # Shift left across columns
-
-        # Reduce values by beta (0.001) while ensuring they stay within [0, 1]
-        shifted_image = torch.clamp(shifted_image - beta, 0, 1)
-        shifted_batch[i] = shifted_image
-
-    return shifted_batch
 
 def advALPTrain(logname, net, DECAY, device, train_loader, val_loader, network, classes, beta, cutmix_prob,
                nb_epochs=10, distillation_weight=0.5, temperature=1, training_loss='alp', learning_rate=0.1, patience=200, VERSION='v1'):
@@ -668,14 +644,14 @@ def APGD(model, x_natural, teacher, loss, T=30.0, alpha =0.9):
     x_adv2 = x_natural.detach() - delta
     b_logits_T = teacher(x_natural)
     b_logits_S = model(x_natural)
-    #x_adv = x_natural.detach() + 0.001 * torch.randn(x_natural.shape).cuda().detach()
-
     for _ in range(perturb_steps):
             x_adv.requires_grad_()
             with torch.enable_grad():
                 edge1 = criterion_kl(F.log_softmax(b_logits_S/T, dim=1), F.softmax(b_logits_T/T, dim=1)) 
-                edge2 = criterion_kl(F.log_softmax(model(x_adv2)/T, dim=1), F.softmax(b_logits_T/T, dim=1)) 
-                edge3 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(model(x_adv2)/T, dim=1)) 
+                edge2 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(b_logits_T/T, dim=1))   
+                edge3 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(b_logits_S/T, dim=1)) 
+                edge2v = criterion_kl(F.log_softmax(model(x_adv2)/T, dim=1), F.softmax(b_logits_T/T, dim=1))   
+                edge3v = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(model(x_adv2)/T, dim=1))  
                 if loss == 'kl_2':
                     loss_kl = edge2
                 elif loss == 'kl_1_2':
@@ -684,6 +660,8 @@ def APGD(model, x_natural, teacher, loss, T=30.0, alpha =0.9):
                     loss_kl = .5 * (edge1 + edge3)
                 elif loss == 'kl_2_3':
                     loss_kl = (1-alpha) * edge2 + alpha * edge3
+                elif loss == 'kl_2_3v':   # introducing the variant with kl_2_3 loss
+                    loss_kl = (1-alpha) * edge2v + alpha * edge3v
                 elif loss == 'kl_1_2_3':
                     loss_kl =  (edge1 + edge2 + edge3) / 3
                 elif loss == 'trades':
@@ -868,7 +846,7 @@ if __name__ == '__main__':
     parser.add_argument('--patience', type=int, default=200)
     parser.add_argument('--teacher', type=str, default="NT")
     parser.add_argument('--version', type=str, default="v1")
-    parser.add_argument('--temperature', default=1.0,
+    parser.add_argument('--temperature', default=30.0,
                         type=float, help='KD Loss Temperature')
     parser.add_argument('--distillation_weight', default=0.5,
                         type=float, help=' KD distillation weight / ALPHA: 0-1')

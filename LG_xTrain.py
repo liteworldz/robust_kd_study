@@ -673,16 +673,19 @@ def APGD(model, x_natural, teacher, loss, T=30.0, alpha =0.9):
     # generate adversarial example
     delta = torch.empty_like(x_natural).uniform_(-epsilon, epsilon).cuda().detach()
     x_adv = x_natural.detach() + delta
+    x_adv2 = x_natural.detach() - delta
     b_logits_T = teacher(x_natural)
     b_logits_S = model(x_natural)
-    #x_adv = x_natural.detach() + 0.001 * torch.randn(x_natural.shape).cuda().detach()
-
+    
+    
     for _ in range(perturb_steps):
             x_adv.requires_grad_()
             with torch.enable_grad():
                 edge1 = criterion_kl(F.log_softmax(b_logits_S/T, dim=1), F.softmax(b_logits_T/T, dim=1)) 
-                edge2 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(b_logits_T/T, dim=1)) 
+                edge2 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(b_logits_T/T, dim=1))   
                 edge3 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(b_logits_S/T, dim=1)) 
+                edge2v = criterion_kl(F.log_softmax(model(x_adv2)/T, dim=1), F.softmax(b_logits_T/T, dim=1))   
+                edge3v = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(model(x_adv2)/T, dim=1))  
                 if loss == 'kl_2':
                     loss_kl = edge2
                 elif loss == 'kl_1_2':
@@ -691,8 +694,13 @@ def APGD(model, x_natural, teacher, loss, T=30.0, alpha =0.9):
                     loss_kl = .5 * (edge1 + edge3)
                 elif loss == 'kl_2_3':
                     loss_kl = (1-alpha) * edge2 + alpha * edge3
+                elif loss == 'kl_2_3v':   # introducing the variant with kl_2_3 loss
+                    loss_kl = (1-alpha) * edge2v + alpha * edge3v
                 elif loss == 'kl_1_2_3':
                     loss_kl =  (edge1 + edge2 + edge3) / 3
+                elif loss == 'trades':
+                    loss_kl = criterion_kl(F.log_softmax(model(x_adv), dim=1), F.softmax(model(x_natural), dim=1)) 
+                    
             grad = torch.autograd.grad(loss_kl, [x_adv])[0]
             x_adv = x_adv.detach() + step_size * torch.sign(grad.detach())
             x_adv = torch.min(torch.max(x_adv, x_natural - epsilon), x_natural + epsilon)
@@ -863,7 +871,7 @@ if __name__ == '__main__':
                     help='hyperparameter beta - 0.0 CutMix is not used, 1.0 CutMix used')
     parser.add_argument('--cutmix_prob', default=0.5, type=float,
                     help='cutmix probability')
-    parser.add_argument('--val_size', type=int, default=6000)
+    parser.add_argument('--val_size', type=int, default=1000)
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--epochs', type=int, default=200)
     parser.add_argument('--patience', type=int, default=200)

@@ -49,7 +49,7 @@ class LossCalulcator(nn.Module):
             total_loss = .5 * (edge1  + edge2)
         elif self.training_loss == 'kl_1_3':
             total_loss = .5 * (edge1  + edge3)
-        elif self.training_loss == 'kl_2_3':
+        elif self.training_loss == 'kl_2_3' or self.training_loss == 'kl_2_3v':
             total_loss = (1-self.distillation_weight) * edge2 + self.distillation_weight * edge3
         elif self.training_loss == 'kl_1_2_3':
             total_loss =  (edge1 + edge2 + edge3) / 3
