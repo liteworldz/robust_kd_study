@@ -752,6 +752,8 @@ def evalAdvAttack(net=None, val_loader=None):
 def main(args):
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    torch.manual_seed(args.seed)
+
     start_epoch = 0  # start from epoch 0 or last checkpoint epoch
     if args.classes == 100:
         print('loading Cifar100')
@@ -858,5 +860,7 @@ if __name__ == '__main__':
                         type=float, help='dropout rate')
     parser.add_argument('--resume', '-r', action='store_true',
                         help='resume from checkpoint')
+    parser.add_argument('--seed', type=int, default=18, metavar='S',
+                    help='random seed (default: 1)')
     args = parser.parse_args()
     main(args)

@@ -32,6 +32,21 @@ from pytorchtools import EarlyStopping
 
 import os
 import sys
+import random, numpy
+
+
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2 ** 32
+    numpy.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+
+g = torch.Generator()
+g.manual_seed(0)
+
+kwargs = {'num_workers': 1, 'pin_memory': True, 'worker_init_fn': seed_worker,
+          'generator': g, }
+
 
 DEVICES_IDS = [0]
 
@@ -109,8 +124,8 @@ def Train(logname, net, DECAY, network, classes, batch_size, train_size, train_d
 
         # Define the sampler for each epoch
         sampler = SubsetRandomSampler(indices[:60000]) 
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, sampler=sampler)
-        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False,**kwargs, sampler=sampler)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False,**kwargs)
         for xs, ys in train_loader:
             xs, ys = Variable(xs), Variable(ys)
             if torch.cuda.is_available():
@@ -246,8 +261,8 @@ def advTrain(logname, net, DECAY, network, classes, batch_size, train_size, trai
         
         # Define the sampler for each epoch
         sampler = SubsetRandomSampler(indices[:60000]) 
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, sampler=sampler)
-        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False,**kwargs, sampler=sampler)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False,**kwargs)
         for xs, ys in train_loader:
             xs, ys = Variable(xs), Variable(ys)
             if torch.cuda.is_available():
@@ -394,8 +409,8 @@ def advALPTrain(logname, net, DECAY, network, classes, batch_size, train_size, d
         
         # Define the sampler for each epoch
         sampler = SubsetRandomSampler(indices[:60000]) 
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, sampler=sampler)
-        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False,**kwargs, sampler=sampler)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False,**kwargs)
         for xs, ys in train_loader:
             xs, ys = Variable(xs), Variable(ys)
             if torch.cuda.is_available():
@@ -549,8 +564,8 @@ def advKDTrain(logname, net, DECAY, network, classes, batch_size, train_size, ne
         
         # Define the sampler for each epoch
         sampler = SubsetRandomSampler(indices[:60000]) 
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, sampler=sampler)
-        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False,**kwargs, sampler=sampler)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False,**kwargs)
         for xs, ys in train_loader:
             xs, ys = Variable(xs), Variable(ys)
             if torch.cuda.is_available():
@@ -785,6 +800,8 @@ def evalAdvAttack(net=None, val_loader=None):
 def main(args):
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    torch.manual_seed(args.seed)
+
     start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 
     if args.classes == 10:
@@ -889,5 +906,7 @@ if __name__ == '__main__':
                         type=float, help='dropout rate')
     parser.add_argument('--resume', '-r', action='store_true',
                         help='resume from checkpoint')
+    parser.add_argument('--seed', type=int, default=18, metavar='S',
+                    help='random seed (default: 1)')
     args = parser.parse_args()
     main(args)

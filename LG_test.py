@@ -23,6 +23,21 @@ import time
 import os
 import csv
 
+import random, numpy
+
+
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2 ** 32
+    numpy.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+
+g = torch.Generator()
+g.manual_seed(0)
+
+kwargs = {'num_workers': 1, 'pin_memory': True, 'worker_init_fn': seed_worker,
+          'generator': g, }
+
 #os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 #device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -109,9 +124,9 @@ def test(net, classes, adversary, steps, filename, val_size, batch_size, data_ty
 
     # Define the sampler for each epoch
     sampler = SubsetRandomSampler(indices[:60000]) 
-    trainloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, sampler=sampler)
-    valloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
-    testloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
+    trainloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False,**kwargs, sampler=sampler)
+    valloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False,**kwargs)
+    testloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True,**kwargs)
 
     if data_type=='test':
         data_loader = testloader
