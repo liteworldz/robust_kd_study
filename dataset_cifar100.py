@@ -34,15 +34,15 @@ def get_loader(val_size=5000, batch_size=128):
     trainset, valset = torch.utils.data.random_split(trainset, [50000 - val_size, val_size],
                                                          torch.Generator().manual_seed(35))
     trainloader = torch.utils.data.DataLoader(
-        trainset, batch_size, shuffle=True, **kwargs, num_workers=0)
+        trainset, batch_size, shuffle=True, **kwargs)
 
     valloader = torch.utils.data.DataLoader(
-        valset, batch_size, shuffle=False, **kwargs, num_workers=0)
+        valset, batch_size, shuffle=False, **kwargs)
     
     testset = datasets.CIFAR100(
         root='./data', train=False, download=True, transform=transform_test)
     
     testloader = torch.utils.data.DataLoader(
-        testset, batch_size, shuffle=False,**kwargs, num_workers=0)
+        testset, batch_size, shuffle=False,**kwargs)
     
     return trainloader, valloader, testloader
