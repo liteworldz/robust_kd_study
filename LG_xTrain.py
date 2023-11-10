@@ -696,22 +696,29 @@ def APGD(model, x_natural, teacher, loss, T=30.0, alpha =0.9):
     for _ in range(perturb_steps):
             x_adv.requires_grad_()
             with torch.enable_grad():
-                edge1 = criterion_kl(F.log_softmax(b_logits_S/T, dim=1), F.softmax(b_logits_T/T, dim=1)) 
-                edge2 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(b_logits_T/T, dim=1))   
-                edge3 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(b_logits_S/T, dim=1)) 
-                edge2v = criterion_kl(F.log_softmax(model(x_adv2)/T, dim=1), F.softmax(b_logits_T/T, dim=1))   
-                edge3v = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(model(x_adv2)/T, dim=1))  
                 if loss == 'kl_2':
+                    edge2 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(b_logits_T/T, dim=1))
                     loss_kl = edge2
                 elif loss == 'kl_1_2':
+                    edge1 = criterion_kl(F.log_softmax(b_logits_S/T, dim=1), F.softmax(b_logits_T/T, dim=1)) 
+                    edge2 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(b_logits_T/T, dim=1)) 
                     loss_kl = .5 * (edge1 + edge2)
                 elif loss == 'kl_1_3':
+                    edge1 = criterion_kl(F.log_softmax(b_logits_S/T, dim=1), F.softmax(b_logits_T/T, dim=1))
+                    edge3 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(b_logits_S/T, dim=1))
                     loss_kl = .5 * (edge1 + edge3)
                 elif loss == 'kl_2_3':
+                    edge2 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(b_logits_T/T, dim=1))   
+                    edge3 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(b_logits_S/T, dim=1)) 
                     loss_kl = (1-alpha) * edge2 + alpha * edge3
                 elif loss == 'kl_2_3v':   # introducing the variant with kl_2_3 loss
+                    edge2v = criterion_kl(F.log_softmax(model(x_adv2)/T, dim=1), F.softmax(b_logits_T/T, dim=1))   
+                    edge3v = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(model(x_adv2)/T, dim=1))
                     loss_kl = (1-alpha) * edge2v + alpha * edge3v
                 elif loss == 'kl_1_2_3':
+                    edge1 = criterion_kl(F.log_softmax(b_logits_S/T, dim=1), F.softmax(b_logits_T/T, dim=1)) 
+                    edge2 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(b_logits_T/T, dim=1))   
+                    edge3 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(b_logits_S/T, dim=1)) 
                     loss_kl =  (edge1 + edge2 + edge3) / 3
                 elif loss == 'trades':
                     loss_kl = criterion_kl(F.log_softmax(model(x_adv), dim=1), F.softmax(model(x_natural), dim=1)) 
