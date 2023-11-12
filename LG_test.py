@@ -124,8 +124,8 @@ def test(net, classes, adversary, steps, filename, val_size, batch_size, data_ty
 
     # Define the sampler for each epoch
     sampler = SubsetRandomSampler(indices[:60000]) 
-    trainloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False,**kwargs, sampler=sampler)
-    valloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False,**kwargs)
+    trainloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,**kwargs, sampler=sampler)
+    valloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True,**kwargs)
     testloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True,**kwargs)
 
     if data_type=='test':

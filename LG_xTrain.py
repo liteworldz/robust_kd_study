@@ -124,8 +124,8 @@ def Train(logname, net, DECAY, network, classes, batch_size, train_size, train_d
 
         # Define the sampler for each epoch
         sampler = SubsetRandomSampler(indices[:60000]) 
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False,**kwargs, sampler=sampler)
-        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False,**kwargs)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,**kwargs, sampler=sampler)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True,**kwargs)
         for xs, ys in train_loader:
             xs, ys = Variable(xs), Variable(ys)
             if torch.cuda.is_available():
@@ -261,8 +261,8 @@ def advTrain(logname, net, DECAY, network, classes, batch_size, train_size, trai
         
         # Define the sampler for each epoch
         sampler = SubsetRandomSampler(indices[:60000]) 
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False,**kwargs, sampler=sampler)
-        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False,**kwargs)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,**kwargs, sampler=sampler)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True,**kwargs)
         for xs, ys in train_loader:
             xs, ys = Variable(xs), Variable(ys)
             if torch.cuda.is_available():
@@ -409,8 +409,8 @@ def advALPTrain(logname, net, DECAY, network, classes, batch_size, train_size, d
         
         # Define the sampler for each epoch
         sampler = SubsetRandomSampler(indices[:60000]) 
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False,**kwargs, sampler=sampler)
-        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False,**kwargs)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,**kwargs, sampler=sampler)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True,**kwargs)
         for xs, ys in train_loader:
             xs, ys = Variable(xs), Variable(ys)
             if torch.cuda.is_available():
@@ -564,8 +564,8 @@ def advKDTrain(logname, net, DECAY, network, classes, batch_size, train_size, ne
         
         # Define the sampler for each epoch
         sampler = SubsetRandomSampler(indices[:60000]) 
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False,**kwargs, sampler=sampler)
-        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False,**kwargs)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,**kwargs, sampler=sampler)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True,**kwargs)
         for xs, ys in train_loader:
             xs, ys = Variable(xs), Variable(ys)
             if torch.cuda.is_available():
