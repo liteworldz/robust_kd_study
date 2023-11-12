@@ -330,6 +330,26 @@ def advTrain(logname, net, DECAY, train_loader, val_loader, network, classes, be
             print("Early stopping")
             break
 
+
+def shift_rows_and_reduce_batch(batch, beta=0.001):
+    shifted_batch = torch.zeros_like(batch)  # Create a batch of zeros with the same shape as the input batch
+
+    for i in range(batch.shape[0]):
+        image = batch[i]
+        shifted_image = torch.zeros_like(image)  # Create a tensor of zeros with the same shape as the image
+
+        for j in range(image.shape[0]):
+            if j % 2 == 0:  # Even row
+                shifted_image[j] = torch.roll(image[j], shifts=1, dims=1)  # Shift right across columns
+            else:  # Odd row
+                shifted_image[j] = torch.roll(image[j], shifts=-1, dims=1)  # Shift left across columns
+
+        # Reduce values by beta (0.001) while ensuring they stay within [0, 1]
+        shifted_image = torch.clamp(shifted_image - beta, 0, 1)
+        shifted_batch[i] = shifted_image
+
+    return shifted_batch
+
 def advALPTrain(logname, net, DECAY, device, train_loader, val_loader, network, classes, beta, cutmix_prob,
                nb_epochs=10, distillation_weight=0.5, temperature=1, training_loss='alp', learning_rate=0.1, patience=200, VERSION='v1'):
     net.train()
@@ -759,8 +779,6 @@ def evalAdvAttack(net=None, val_loader=None):
 def main(args):
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    torch.manual_seed(args.seed)
-
     start_epoch = 0  # start from epoch 0 or last checkpoint epoch
     if args.classes == 100:
         print('loading Cifar100')
@@ -855,7 +873,7 @@ if __name__ == '__main__':
     parser.add_argument('--patience', type=int, default=200)
     parser.add_argument('--teacher', type=str, default="NT")
     parser.add_argument('--version', type=str, default="v1")
-    parser.add_argument('--temperature', default=30.0,
+    parser.add_argument('--temperature', default=1.0,
                         type=float, help='KD Loss Temperature')
     parser.add_argument('--distillation_weight', default=0.5,
                         type=float, help=' KD distillation weight / ALPHA: 0-1')
@@ -867,7 +885,5 @@ if __name__ == '__main__':
                         type=float, help='dropout rate')
     parser.add_argument('--resume', '-r', action='store_true',
                         help='resume from checkpoint')
-    parser.add_argument('--seed', type=int, default=18, metavar='S',
-                    help='random seed (default: 1)')
     args = parser.parse_args()
     main(args)
