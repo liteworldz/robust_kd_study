@@ -197,7 +197,7 @@ def main():
     parser.add_argument("--gpu", type=str, default="0")
     parser.add_argument('--network', type=str, default="resnet18")
     parser.add_argument('--classes', type=int, default=10)
-    parser.add_argument('--val_size', type=int, default=6000)
+    parser.add_argument('--val_size', type=int, default=1000)
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument(
         '--filename',
