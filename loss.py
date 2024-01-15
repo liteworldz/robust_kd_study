@@ -26,8 +26,9 @@ class LossCalulcator(nn.Module):
         
         edge1 = self.kldiv(F.log_softmax(benign/self.temperature, dim=1), F.softmax(teacher/self.temperature, dim=1))  * (self.temperature ** 2)
         edge2 = self.kldiv(F.log_softmax(adversarial/self.temperature, dim=1), F.softmax(teacher/self.temperature, dim=1)) * (self.temperature ** 2)
+        edge2_mse = self.MSELoss(adversarial, teacher) 
         edge3 = self.kldiv(F.log_softmax(adversarial/self.temperature, dim=1), F.softmax(benign/self.temperature, dim=1))  * (self.temperature ** 2)
-            
+
             
         if self.training_loss == 'alp':
             soft_target_loss = self.MSELoss(adversarial,  benign)
@@ -50,7 +51,7 @@ class LossCalulcator(nn.Module):
         elif self.training_loss == 'kl_1_3':
             total_loss = .5 * (edge1  + edge3)
         elif self.training_loss == 'kl_2_3' or self.training_loss == 'kl_2_3v':
-            total_loss = (1-self.distillation_weight) * edge2 + self.distillation_weight * edge3
+            total_loss = (1-self.distillation_weight) * edge2_mse + self.distillation_weight * edge3
         elif self.training_loss == 'kl_1_2_3':
             total_loss =  (edge1 + edge2 + edge3) / 3
         elif self.training_loss == 'trades':

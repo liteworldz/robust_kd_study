@@ -1,0 +1,1 @@
+_epoch,train_loss,valid_loss,acc,val_acc,lr,type,early_stopping,elapsed_time

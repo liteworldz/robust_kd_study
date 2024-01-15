@@ -580,6 +580,7 @@ def advKDTrain(logname, net, DECAY, net_t, device, train_loader, val_loader, net
                 #adv = attack(xs, ys)
                 adv = APGD(model=net,x_natural= xs, teacher=net_t, loss=training_loss, T=temperature, alpha=distillation_weight)
                 preds_t = net_t(xs)
+                #delta = 0.001 * torch.randn(xs.shape).cuda().detach()
                 preds =  net(xs)
                 preds_s =  net(adv)
                 #loss = CELoss(xs, ys)
@@ -656,10 +657,12 @@ def APGD(model, x_natural, teacher, loss, T=30.0, alpha =0.9):
     step_size= 2/255  # 0.003
     epsilon= 8/255    # 0.031
     perturb_steps=10  # 10
-
+        
     model.eval()
     # generate adversarial example
-    delta = torch.empty_like(x_natural).uniform_(-epsilon, epsilon).cuda().detach()
+    delta = 0.001 * torch.randn(x_natural.shape).cuda().detach()
+    #delta = torch.empty_like(x_natural).uniform_(-epsilon, epsilon).cuda().detach()
+    #x_adv = x_natural.detach() + 0.001 * torch.randn(x_natural.shape).cuda().detach()
     x_adv = x_natural.detach() + delta
     x_adv2 = x_natural.detach() - delta
     b_logits_T = teacher(x_natural)
@@ -683,9 +686,9 @@ def APGD(model, x_natural, teacher, loss, T=30.0, alpha =0.9):
                     edge3 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(b_logits_S/T, dim=1)) 
                     loss_kl = (1-alpha) * edge2 + alpha * edge3
                 elif loss == 'kl_2_3v':   # introducing the variant with kl_2_3 loss
-                    edge2v = criterion_kl(F.log_softmax(model(x_adv2)/T, dim=1), F.softmax(b_logits_T/T, dim=1))   
-                    edge3v = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(model(x_adv2)/T, dim=1))
-                    loss_kl = (1-alpha) * edge2v + alpha * edge3v
+                    #edge2v = criterion_kl(F.log_softmax(model(x_adv2)/T, dim=1), F.softmax(b_logits_T/T, dim=1))   
+                    edge3v = criterion_kl(F.log_softmax(model(x_adv), dim=1), F.softmax(b_logits_S, dim=1))
+                    loss_kl =  edge3v
                 elif loss == 'kl_1_2_3':
                     edge1 = criterion_kl(F.log_softmax(b_logits_S/T, dim=1), F.softmax(b_logits_T/T, dim=1)) 
                     edge2 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(b_logits_T/T, dim=1))   
@@ -845,14 +848,15 @@ def main(args):
 
 def adjust_learning_rate(learning_rate,optimizer, epoch):
     lr = learning_rate
-    if epoch >= 100:
+    if epoch >= 75:
         lr /= 10
-    if epoch >= 150:
+    if epoch >= 90:
+        lr /= 10
+    if epoch >= 100:
         lr /= 10
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
     return optimizer, lr
-
 
 
 
@@ -867,7 +871,7 @@ if __name__ == '__main__':
                     help='hyperparameter beta - 0.0 CutMix is not used, 1.0 CutMix used')
     parser.add_argument('--cutmix_prob', default=0.5, type=float,
                     help='cutmix probability')
-    parser.add_argument('--val_size', type=int, default=1000)
+    parser.add_argument('--val_size', type=int, default=500)
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--epochs', type=int, default=200)
     parser.add_argument('--patience', type=int, default=200)
