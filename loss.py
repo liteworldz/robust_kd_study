@@ -26,7 +26,10 @@ class LossCalulcator(nn.Module):
         
         edge1 = self.kldiv(F.log_softmax(benign/self.temperature, dim=1), F.softmax(teacher/self.temperature, dim=1))  * (self.temperature ** 2)
         edge2 = self.kldiv(F.log_softmax(adversarial/self.temperature, dim=1), F.softmax(teacher/self.temperature, dim=1)) * (self.temperature ** 2)
-        edge2_mse = self.MSELoss(adversarial, teacher) 
+        mse_adv = self.MSELoss(adversarial, teacher)
+        mse_b = self.MSELoss(benign, teacher) 
+        mse_avg = .5*(mse_adv+mse_b)
+        mse_logits = self.MSELoss(adversarial/self.temperature, benign/self.temperature)  * (self.temperature ** 2)
         edge3 = self.kldiv(F.log_softmax(adversarial/self.temperature, dim=1), F.softmax(benign/self.temperature, dim=1))  * (self.temperature ** 2)
 
             
@@ -49,11 +52,13 @@ class LossCalulcator(nn.Module):
         elif self.training_loss == 'kl_1_2':
             total_loss = .5 * (edge1  + edge2)
         elif self.training_loss == 'kl_1_3':
-            total_loss = .5 * (edge1  + edge3)
-        elif self.training_loss == 'kl_2_3' or self.training_loss == 'kl_2_3v':
-            total_loss = (1-self.distillation_weight) * edge2_mse + self.distillation_weight * edge3
+            total_loss =  (1-self.distillation_weight) * edge1 + self.distillation_weight * edge3
+        elif self.training_loss == 'kl_2_3b':
+            total_loss = (1-self.distillation_weight) * mse_b + self.distillation_weight * edge3
+        elif self.training_loss == 'kl_2_3a':
+            total_loss = (1-self.distillation_weight) * mse_adv + self.distillation_weight * edge3
         elif self.training_loss == 'kl_1_2_3':
-            total_loss =  (edge1 + edge2 + edge3) / 3
+            total_loss =   (1-self.distillation_weight) * 0.5 * (edge1+edge2) + self.distillation_weight * edge3
         elif self.training_loss == 'trades':
             hard_target_loss = F.cross_entropy(benign, targets)
             soft_target_loss = self.kldiv(F.log_softmax(adversarial, dim=1), F.softmax(benign, dim=1)) 

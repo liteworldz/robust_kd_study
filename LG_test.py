@@ -31,57 +31,89 @@ ALPHA= 2/255
 STEPS= 20
 
 # Evaluate results on clean data
-def evalClean(net=None, data_loader=None):
+def evalClean(model, dataloader, criterion, device='cuda'):
     print("Evaluating model results on clean data")
-    total = 0
-    correct = 0
-    net.eval()
-    criterion = nn.CrossEntropyLoss()
-    # to track the validation loss as the model trains
-    valid_losses = []
-    with torch.no_grad():
-        for xs, ys in tqdm(data_loader):
-            xs, ys = Variable(xs), Variable(ys)
-            if torch.cuda.is_available():
-                xs, ys = xs.cuda(), ys.cuda()
-            preds1 = net(xs)
-            loss = criterion(preds1, ys)
-            valid_losses.append(loss.data.item())
-            preds_np1 = preds1.cpu().detach().numpy()
-            finalPred = np.argmax(preds_np1, axis=1)
-            correct += (finalPred == ys.cpu().detach().numpy()).sum()
-            total += len(xs)
-    acc = float(correct) / total
-    #print('Clean accuracy: %.2f%%' % (acc * 100))
-    return valid_losses, acc
+    """
+    Evaluate a PyTorch model on clean data.
+
+    Args:
+    - model: PyTorch model to evaluate
+    - dataloader: PyTorch DataLoader for the clean data
+    - criterion: Loss function to evaluate the model
+    - device: Device to perform the evaluation on (default: 'cuda')
+
+    Returns:
+    - loss: Average loss on the clean data
+    - accuracy: Accuracy on the clean data
+    """
+    model.eval()
+    total_loss = 0.0
+    total_correct = 0
+    total_samples = 0
+
+    for inputs, targets in tqdm(dataloader):
+        inputs, targets = inputs.to(device), targets.to(device)
+
+        # Forward pass
+        outputs = model(inputs)
+        loss = criterion(outputs, targets)
+        total_loss += loss.item() * inputs.size(0)
+
+        # Calculate accuracy
+        _, predicted = torch.max(outputs, 1)
+        total_correct += (predicted == targets).sum().item()
+        total_samples += inputs.size(0)
+
+    # Calculate average loss and accuracy
+    avg_loss = total_loss / total_samples
+    accuracy = total_correct / total_samples
+
+    #print('accuracy: {:.3f}％'.format(accuracy * 100))
+    return avg_loss, accuracy
+    
 
 # Evaluate results on adversarially perturbed
-def evalAdvAttack(net=None, data_loader=None, attack=None):
+def evalAdvAttack(model, dataloader, criterion, attack, device='cuda'):
     print("Evaluating model results on adv data")
-    total = 0
-    correct = 0
-    criterion = nn.CrossEntropyLoss()
-    # to track the validation loss as the model trains
-    valid_losses = []
-    net.eval()
-    for xs, ys in tqdm(data_loader):
-        if torch.cuda.is_available():
-            xs, ys = xs.cuda(), ys.cuda()
-        # pytorch PGD
-        
-        xs, ys = Variable(xs), Variable(ys)
-        #adv = attack(xs, ys).detach().cpu()
-        adv = attack(xs, ys)
-        preds = net(adv)
-        loss = criterion(preds, ys)
-        valid_losses.append(loss.data.item())
-        preds_np = preds.cpu().detach().numpy()
-        finalPred = np.argmax(preds_np, axis=1)
-        correct += (finalPred == ys.cpu().detach().numpy()).sum()
-        total += data_loader.batch_size
-    acc = float(correct) / total
-    #print('Adv accuracy: {:.3f}ï¼…'.format(acc * 100))
-    return valid_losses, acc
+    """
+    Evaluate a PyTorch model on adv data.
+
+    Args:
+    - model: PyTorch model to evaluate
+    - dataloader: PyTorch DataLoader for the clean data
+    - criterion: Loss function to evaluate the model
+    - attack: attack to evaluate
+    - device: Device to perform the evaluation on (default: 'cuda')
+
+    Returns:
+    - loss: Average loss on the adv data
+    - accuracy: Accuracy on the adv data
+    """
+    model.eval()
+    total_loss = 0.0
+    total_correct = 0
+    total_samples = 0
+
+    for inputs, targets in tqdm(dataloader):
+        inputs, targets = inputs.to(device), targets.to(device)
+
+        # Forward pass
+        adv = attack(inputs, targets)
+        outputs = model(adv)
+        loss = criterion(outputs, targets)
+        total_loss += loss.item() * inputs.size(0)
+
+        # Calculate accuracy
+        _, predicted = torch.max(outputs, 1)
+        total_correct += (predicted == targets).sum().item()
+        total_samples += inputs.size(0)
+
+    # Calculate average loss and accuracy
+    avg_loss = total_loss / total_samples
+    accuracy = total_correct / total_samples
+
+    #print('accuracy: {:.3f}％'.format(accuracy * 100))
+    return avg_loss, accuracy
 
 def test(net, classes, adversary, steps, filename, val_size, batch_size, data_type):
     
@@ -144,8 +176,8 @@ def test(net, classes, adversary, steps, filename, val_size, batch_size, data_ty
         attack = PGDadversary
     else:
         attack = AUTOadversary
-    valid_losses_clean, acc_clean = evalClean(net, data_loader)
-    valid_losses_adv, acc_adv = evalAdvAttack(net, data_loader, attack)
+    valid_losses_clean, acc_clean = evalClean(net, data_loader, criterion=criterion)
+    valid_losses_adv, acc_adv = evalAdvAttack(net, data_loader, criterion=criterion, attack=attack)
     
     print('\nTotal benign [',data_type,'] accuarcy:', 100*acc_clean)
     print('Total adversarial [',data_type,'] Accuarcy:',100* acc_adv)

@@ -131,13 +131,12 @@ def Train(logname, net, DECAY, train_loader, val_loader, network, classes, beta,
             else:
                 preds = net(xs)
                 loss = loss_func(preds, ys)
-                preds_np = preds.cpu().detach().numpy()
-                correct += (np.argmax(preds_np, axis=1) ==
-                            ys.cpu().detach().numpy()).sum()
-                _, predicted = preds.max(1)
+                _, predicted = torch.max(preds, 1)
+                correct += (predicted == ys).sum().item()
+                
             #correct += predicted.eq(ys).sum().item()
             train_losses.append(loss.data.item()) # record training loss
-            total += train_loader.batch_size
+            total += xs.size(0)
             step += 1
             optimizer.zero_grad()
             loss.backward()  # calc gradients
@@ -270,13 +269,12 @@ def advTrain(logname, net, DECAY, train_loader, val_loader, network, classes, be
                 adv = attack(xs, ys)
                 preds = net(adv)
                 loss = loss_func(preds, ys)
-                preds_np = preds.cpu().detach().numpy()
-                correct += (np.argmax(preds_np, axis=1) ==
-                            ys.cpu().detach().numpy()).sum()
-                _, predicted = preds.max(1)
+                _, predicted = torch.max(preds, 1)
+                correct += (predicted == ys).sum().item()
+
             #correct += predicted.eq(ys).sum().item()
             train_losses.append(loss.data.item()) # record training loss
-            total += train_loader.batch_size
+            total += xs.size(0)
             step += 1
             optimizer.zero_grad()
             loss.backward()  # calc gradients
@@ -433,13 +431,13 @@ def advALPTrain(logname, net, DECAY, device, train_loader, val_loader, network, 
                 preds_s =  net(adv)
                 #loss = CELoss(xs, ys)
                 loss = lossCalculator(benign=preds_t, targets=ys, adversarial=preds_s, teacher=preds_t)
-                preds_np = preds_s.cpu().detach().numpy()
-                correct += (np.argmax(preds_np, axis=1) ==
-                            ys.cpu().detach().numpy()).sum()
+        
+                _, predicted = torch.max(preds_s, 1)
+                correct += (predicted == ys).sum().item()
                 #printLogits(outputs= preds, teacher=preds_t, targets= ys, index=0, message= 'preds', escape=False)
             train_losses.append(loss.data.item()) # record training loss
         
-            total += train_loader.batch_size
+            total += xs.size(0)
 
             step += 1
             optimizer.zero_grad()
@@ -580,18 +578,16 @@ def advKDTrain(logname, net, DECAY, net_t, device, train_loader, val_loader, net
                 #adv = attack(xs, ys)
                 adv = APGD(model=net,x_natural= xs, teacher=net_t, loss=training_loss, T=temperature, alpha=distillation_weight)
                 preds_t = net_t(xs)
-                #delta = 0.001 * torch.randn(xs.shape).cuda().detach()
                 preds =  net(xs)
                 preds_s =  net(adv)
                 #loss = CELoss(xs, ys)
                 loss = lossCalculator(benign=preds, targets=ys, adversarial=preds_s, teacher=preds_t)
-                preds_np = preds_s.cpu().detach().numpy()
-                correct += (np.argmax(preds_np, axis=1) ==
-                            ys.cpu().detach().numpy()).sum()
+                _, predicted = torch.max(preds_s, 1)
+                correct += (predicted == ys).sum().item()
                 #printLogits(outputs= preds, teacher=preds_t, targets= ys, index=0, message= 'preds', escape=False)
             train_losses.append(loss.data.item()) # record training loss
             
-            total += train_loader.batch_size
+            total += xs.size(0)
 
             step += 1
             optimizer.zero_grad()
@@ -654,6 +650,7 @@ def APGD(model, x_natural, teacher, loss, T=30.0, alpha =0.9):
     STEPS = 10
     '''
     criterion_kl = nn.KLDivLoss(reduction='batchmean')
+    MSELoss = nn.MSELoss() 
     step_size= 2/255  # 0.003
     epsilon= 8/255    # 0.031
     perturb_steps=10  # 10
@@ -685,7 +682,7 @@ def APGD(model, x_natural, teacher, loss, T=30.0, alpha =0.9):
                     edge2 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(b_logits_T/T, dim=1))   
                     edge3 = criterion_kl(F.log_softmax(model(x_adv)/T, dim=1), F.softmax(b_logits_S/T, dim=1)) 
                     loss_kl = (1-alpha) * edge2 + alpha * edge3
-                elif loss == 'kl_2_3v':   # introducing the variant with kl_2_3 loss
+                elif loss == 'kl_2_3b' or loss == 'kl_2_3a':   # introducing the variant with kl_2_3 loss
                     #edge2v = criterion_kl(F.log_softmax(model(x_adv2)/T, dim=1), F.softmax(b_logits_T/T, dim=1))   
                     edge3v = criterion_kl(F.log_softmax(model(x_adv), dim=1), F.softmax(b_logits_S, dim=1))
                     loss_kl =  edge3v
@@ -739,13 +736,13 @@ def evalClean(net=None, val_loader=None):
             xs, ys = Variable(xs), Variable(ys)
             if torch.cuda.is_available():
                 xs, ys = xs.cuda(), ys.cuda()
-            preds1 = net(xs)
-            loss = criterion(preds1, ys)
+            outputs = net(xs)
+            loss = criterion(outputs, ys)
             valid_losses.append(loss.data.item())
-            preds_np1 = preds1.cpu().detach().numpy()
-            finalPred = np.argmax(preds_np1, axis=1)
-            correct += (finalPred == ys.cpu().detach().numpy()).sum()
-            total += len(xs)
+            # Calculate accuracy
+            _, predicted = torch.max(outputs, 1)
+            correct += (predicted == ys).sum().item()
+            total += xs.size(0)
     acc = float(correct) / total
     #print('Clean accuracy: %.2f%%' % (acc * 100))
     return valid_losses, acc
@@ -768,13 +765,13 @@ def evalAdvAttack(net=None, val_loader=None):
         xs, ys = Variable(xs), Variable(ys)
         #adv = attack(xs, ys).detach().cpu()
         adv = attack(xs, ys)
-        preds = net(adv)
-        loss = criterion(preds, ys)
+        outputs = net(adv)
+        loss = criterion(outputs, ys)
         valid_losses.append(loss.data.item())
-        preds_np = preds.cpu().detach().numpy()
-        finalPred = np.argmax(preds_np, axis=1)
-        correct += (finalPred == ys.cpu().detach().numpy()).sum()
-        total += val_loader.batch_size
+        # Calculate accuracy
+        _, predicted = torch.max(outputs, 1)
+        correct += (predicted == ys).sum().item()
+        total += xs.size(0)
     acc = float(correct) / total
     #print('Adv accuracy: {:.3f}%'.format(acc * 100))
     return valid_losses, acc

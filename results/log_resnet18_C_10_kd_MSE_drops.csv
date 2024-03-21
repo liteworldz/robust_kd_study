@@ -1,0 +1,2 @@
+_epoch,train_loss,valid_loss,acc,val_acc,lr,type,hard_loss,soft_loss,total_loss,alpha,temp,early_stopping,elapsed_time
+1,0.163494,8.740512,0.122,0.094,0.1000,kl_2_3v,"0.000, 0.000, 0.138",0.9,30.0,0,3

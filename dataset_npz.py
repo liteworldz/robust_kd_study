@@ -22,14 +22,15 @@ class NumpyToTorchDataset(Dataset):
         return image, label
 
 # Load the dataset
-dataset = np.load('./cifar10_ddpm.npz')
+#dataset = np.load('./10m.npz')  # 10M
+dataset = np.load('./cifar10_ddpm.npz') # 1M
 images = dataset['image']
 labels = dataset['label'].astype(np.int64)  # Convert labels to int64
 
 
 
 def get_loader(val_size=50000, batch_size=2000):
-    val_size=10000
+    val_size=500
     batch_size=800
     
     # Divide original data into two equal parts 500k each

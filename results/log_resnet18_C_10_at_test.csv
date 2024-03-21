@@ -1,2 +1,2 @@
 _epoch,train_loss,valid_loss,acc,val_acc,lr,type,early_stopping,elapsed_time
-1,1.744106,1.502620,0.346,0.436,0.1000,NT,0,0
+1,2.119135,1.980675,0.216,0.248,0.1000,AT,0,2
